@@ -1,0 +1,782 @@
+@import "tailwindcss";
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 420px;
+  min-height: 300px;
+  max-height: 600px;
+  overflow-y: auto;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+  font-size: 14px;
+  color: #202124;
+  background: white;
+}
+
+.rx-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+/* Header */
+.rx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.rx-header h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.rx-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  color: #5f6368;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rx-back-btn:hover {
+  background: #f1f3f4;
+}
+
+.rx-header-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 22px;
+  color: #5f6368;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rx-header-btn:hover {
+  background: #f1f3f4;
+}
+
+/* Steps */
+.rx-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+
+.rx-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dadce0;
+  transition: all 0.2s;
+}
+
+.rx-step-dot.active {
+  background: #1a73e8;
+  width: 20px;
+  border-radius: 4px;
+}
+
+.rx-step-dot.completed {
+  background: #1a73e8;
+}
+
+/* Body */
+.rx-body {
+  padding: 16px;
+  flex: 1;
+}
+
+/* Footer */
+.rx-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Buttons */
+.rx-btn {
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.rx-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rx-btn-primary {
+  background: #1a73e8;
+  color: white;
+}
+
+.rx-btn-primary:hover:not(:disabled) {
+  background: #1557b0;
+}
+
+.rx-btn-secondary {
+  background: transparent;
+  color: #1a73e8;
+}
+
+.rx-btn-secondary:hover:not(:disabled) {
+  background: #e8f0fe;
+}
+
+.rx-btn-danger {
+  background: transparent;
+  color: #d93025;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.rx-btn-danger:hover {
+  background: #fce8e6;
+}
+
+.rx-btn-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.rx-btn-outline {
+  background: transparent;
+  border: 1px solid #dadce0;
+  color: #5f6368;
+}
+
+.rx-btn-outline:hover:not(:disabled) {
+  background: #f1f3f4;
+  border-color: #c0c0c0;
+}
+
+/* Tabs */
+.rx-tabs {
+  display: flex;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 12px;
+}
+
+.rx-tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: #5f6368;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.rx-tab.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+/* Upload */
+.rx-upload-area {
+  border: 2px dashed #dadce0;
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #5f6368;
+}
+
+.rx-upload-area:hover, .rx-upload-area.dragover {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+}
+
+.rx-upload-area .icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.rx-upload-area .label {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.rx-upload-area .hint {
+  font-size: 11px;
+  color: #80868b;
+}
+
+/* Textarea */
+.rx-textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: 10px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.rx-textarea:focus {
+  border-color: #1a73e8;
+}
+
+.rx-textarea::placeholder {
+  color: #80868b;
+}
+
+/* Cards */
+.rx-card {
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.rx-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rx-card-header .pill-icon { font-size: 18px; }
+
+.rx-card-header .med-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #202124;
+  flex: 1;
+}
+
+.rx-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rx-field label {
+  font-size: 11px;
+  color: #5f6368;
+  font-weight: 500;
+}
+
+.rx-field input, .rx-field select {
+  padding: 6px 8px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: white;
+}
+
+.rx-field-error, input.rx-field-error, .rx-med-row-name-input.rx-field-error {
+  border-color: #d93025 !important;
+}
+
+.rx-field input:focus, .rx-field select:focus {
+  border-color: #1a73e8;
+}
+
+.rx-field-full {
+  grid-column: 1 / -1;
+}
+
+/* Timeline */
+.rx-timeline-group { margin-bottom: 16px; }
+
+.rx-timeline-group-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.rx-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  position: relative;
+}
+
+.rx-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 26px;
+  bottom: -6px;
+  width: 2px;
+  background: #e0e0e0;
+}
+
+.rx-timeline-item:last-child::before { display: none; }
+
+.rx-timeline-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: white;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.rx-timeline-time { font-size: 13px; font-weight: 500; color: #202124; }
+.rx-timeline-med { font-size: 12px; color: #5f6368; }
+.rx-timeline-ref { font-size: 10px; color: #80868b; }
+
+.rx-time-edit {
+  width: 90px;
+  padding: 4px 6px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.rx-time-edit:focus { border-color: #1a73e8; }
+
+.rx-timeline-med, .rx-timeline-ref {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+/* Date picker */
+.rx-date-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rx-date-field label { font-size: 13px; color: #5f6368; }
+
+.rx-date-field input {
+  padding: 6px 8px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* Confirm */
+.rx-confirm-list { max-height: 200px; overflow-y: auto; }
+
+.rx-confirm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f3f4;
+  font-size: 12px;
+  color: #202124;
+}
+
+.rx-confirm-summary {
+  background: #e8f0fe;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.rx-confirm-summary .count { font-size: 22px; font-weight: 500; color: #1a73e8; }
+.rx-confirm-summary .label { font-size: 13px; color: #5f6368; }
+
+/* Loading */
+.rx-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  gap: 12px;
+}
+
+.rx-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: rx-spin 0.8s linear infinite;
+}
+
+@keyframes rx-spin { to { transform: rotate(360deg); } }
+
+.rx-loading-text { font-size: 13px; color: #5f6368; }
+
+/* Error */
+.rx-error-wrap { padding: 8px 16px 0; }
+
+.rx-error {
+  background: #fce8e6;
+  color: #d93025;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Success */
+.rx-success {
+  text-align: center;
+  padding: 24px;
+}
+
+.rx-success .icon { font-size: 40px; margin-bottom: 12px; display: block; }
+.rx-success .title { font-size: 16px; font-weight: 500; color: #202124; margin-bottom: 6px; }
+.rx-success .desc { font-size: 13px; color: #5f6368; }
+
+/* Add medication */
+.rx-add-med {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border: 2px dashed #dadce0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  color: #1a73e8;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+.rx-add-med:hover { border-color: #1a73e8; background: #e8f0fe; }
+
+/* Settings form */
+.rx-settings-section {
+  margin-bottom: 20px;
+}
+
+.rx-settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.rx-settings-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.rx-provider-selector {
+  display: flex;
+  gap: 0;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rx-provider-option {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  color: #5f6368;
+  transition: all 0.15s;
+}
+
+.rx-provider-option:not(:last-child) {
+  border-right: 1px solid #dadce0;
+}
+
+.rx-provider-option.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-weight: 500;
+}
+
+.rx-provider-option:hover:not(.active) {
+  background: #f8f9fa;
+}
+
+/* Settings toggle */
+.rx-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #5f6368;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.rx-settings-toggle:hover { background: #f1f3f4; }
+
+.rx-settings-panel {
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+  background: #f8f9fa;
+}
+
+.rx-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Medication Row (unified review) */
+.rx-med-row {
+  border: 1px solid #dadce0;
+  border-left: 4px solid #1a73e8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.rx-med-row-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rx-med-row-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rx-med-row-dosage {
+  font-weight: 400;
+  color: #5f6368;
+}
+
+.rx-med-row-summary {
+  font-size: 12px;
+  color: #5f6368;
+  margin-top: 2px;
+}
+
+.rx-med-row-name-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1px solid #dadce0;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 2px 0;
+  color: #202124;
+}
+
+.rx-med-row-name-input:focus {
+  border-bottom-color: #1a73e8;
+}
+
+.rx-med-row-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.rx-btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  font-size: 14px;
+  color: #5f6368;
+  line-height: 1;
+}
+
+.rx-btn-icon:hover {
+  background: #f1f3f4;
+}
+
+.rx-med-row-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rx-time-pill {
+  padding: 3px 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  width: 82px;
+  background: #f8f9fa;
+}
+
+.rx-time-pill:focus {
+  border-color: #1a73e8;
+  background: white;
+}
+
+.rx-med-row-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #1a73e8;
+  font-size: 12px;
+  padding: 4px 0;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+.rx-med-row-close:hover {
+  text-decoration: underline;
+}
+
+/* Time overflow */
+.rx-time-pill.rx-time-overflow {
+  border-color: #d93025;
+  background: #fce8e6;
+}
+
+.rx-med-row-overflow {
+  color: #d93025;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* Review summary */
+.rx-review-summary {
+  background: #e8f0fe;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.rx-review-count {
+  font-size: 22px;
+  font-weight: 500;
+  color: #1a73e8;
+}
+
+.rx-review-label {
+  font-size: 13px;
+  color: #5f6368;
+  margin-left: 4px;
+}
+
+/* Calendar status (settings page) */
+.rx-calendar-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #202124;
+  padding: 10px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.rx-calendar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dadce0;
+  flex-shrink: 0;
+}
+
+.rx-calendar-dot.connected {
+  background: #34a853;
+}
+
+.rx-calendar-email {
+  font-size: 13px;
+  color: #202124;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Save button in medication edit */
+.rx-med-row-save {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 13px;
+  padding: 8px;
+}
+
+/* Upload compact */
+.rx-upload-area.rx-upload-compact {
+  padding: 14px 12px;
+}
+
+.rx-upload-area.rx-upload-compact .icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+/* Scrollbar */
+body::-webkit-scrollbar { width: 6px; }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
