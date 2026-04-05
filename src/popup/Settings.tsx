@@ -6,17 +6,45 @@ import {
   revokeMicrosoftAuthToken,
   isMicrosoftConnected,
 } from '../lib/calendar/microsoft/auth';
+import { getAIProvider } from '../lib/ai';
 
-const AI_PROVIDERS: {
+interface AIProviderInfo {
   value: AIProvider;
   label: string;
   placeholder: string;
   /** Whether this provider needs an extra model slug input. */
   needsModel: boolean;
-}[] = [
-  { value: 'gemini', label: 'Gemini Flash', placeholder: 'AIza...', needsModel: false },
-  { value: 'claude', label: 'Claude', placeholder: 'sk-ant-...', needsModel: false },
-  { value: 'openrouter', label: 'OpenRouter', placeholder: 'sk-or-v1-...', needsModel: true },
+  /** Where users get a key. */
+  signupUrl: string;
+  /** One-line micro-copy describing the free/paid situation. */
+  freeHint: string;
+}
+
+const AI_PROVIDERS: AIProviderInfo[] = [
+  {
+    value: 'gemini',
+    label: 'Gemini Flash',
+    placeholder: 'AIza...',
+    needsModel: false,
+    signupUrl: 'https://aistudio.google.com/apikey',
+    freeHint: 'Free tier — no credit card. ~2 min to set up.',
+  },
+  {
+    value: 'claude',
+    label: 'Claude',
+    placeholder: 'sk-ant-...',
+    needsModel: false,
+    signupUrl: 'https://console.anthropic.com/settings/keys',
+    freeHint: 'Paid — requires credit card. Fractions of a cent per prescription.',
+  },
+  {
+    value: 'openrouter',
+    label: 'OpenRouter',
+    placeholder: 'sk-or-v1-...',
+    needsModel: true,
+    signupUrl: 'https://openrouter.ai/keys',
+    freeHint: 'Free and paid models. Pick any vision-capable model below.',
+  },
 ];
 
 const CALENDAR_PROVIDERS: { value: CalendarProvider; label: string }[] = [
@@ -51,6 +79,12 @@ export default function Settings({ onBack }: SettingsProps) {
   const [msConnected, setMsConnected] = useState(false);
   const [msLoading, setMsLoading] = useState(false);
   const [msError, setMsError] = useState<string | null>(null);
+
+  // AI key test state
+  const [aiTestLoading, setAiTestLoading] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<
+    { ok: true } | { ok: false; message: string } | null
+  >(null);
 
   async function fetchGoogleEmail(token: string) {
     try {
@@ -136,6 +170,36 @@ export default function Settings({ onBack }: SettingsProps) {
     setMsConnected(false);
     setMsLoading(false);
   }
+
+  async function handleTestAiKey() {
+    setAiTestResult(null);
+    setAiTestLoading(true);
+    try {
+      // Use the same normalized shape handleSave persists so the test
+      // reflects what parsePrescription will actually see.
+      const normalized: SettingsType = {
+        ...settings,
+        apiKey: settings.apiKey.trim(),
+        openrouterModel: settings.openrouterModel.trim(),
+      };
+      const provider = getAIProvider(normalized.aiProvider);
+      await provider.testKey(normalized);
+      setAiTestResult({ ok: true });
+    } catch (e) {
+      setAiTestResult({
+        ok: false,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setAiTestLoading(false);
+    }
+  }
+
+  // Clear the test result whenever the user edits the key or switches provider,
+  // so stale ticks don't mislead them.
+  useEffect(() => {
+    setAiTestResult(null);
+  }, [settings.apiKey, settings.aiProvider, settings.openrouterModel]);
 
   useEffect(() => {
     chrome.storage.local.get('settings', (result) => {
@@ -254,13 +318,40 @@ export default function Settings({ onBack }: SettingsProps) {
           ) : (
             <>
               <div className="rx-field" style={{ marginTop: '8px' }}>
-                <label>Azure AD client (application) ID</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                  }}
+                >
+                  <label style={{ margin: 0 }}>Azure AD client (application) ID</label>
+                  <a
+                    href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '11px', color: '#1a73e8', textDecoration: 'none' }}
+                  >
+                    How to register an app {'\u2197'}
+                  </a>
+                </div>
                 <input
                   type="text"
                   value={settings.microsoftClientId}
                   onChange={(e) => update('microsoftClientId', e.target.value)}
                   placeholder="00000000-0000-0000-0000-000000000000"
                 />
+                <small
+                  style={{
+                    color: '#80868b',
+                    fontSize: '11px',
+                    display: 'block',
+                    marginTop: '4px',
+                  }}
+                >
+                  Register a single-tenant or multi-tenant app with Calendars.ReadWrite permission.
+                </small>
               </div>
               <div className="rx-calendar-status-row" style={{ marginTop: '8px' }}>
                 <span className={`rx-calendar-dot${msConnected ? ' connected' : ''}`} />
@@ -283,6 +374,16 @@ export default function Settings({ onBack }: SettingsProps) {
         {/* AI Model */}
         <section className="rx-settings-section">
           <h3 className="rx-settings-section-title">AI Model (photo/PDF only)</h3>
+          <div
+            style={{
+              color: '#5f6368',
+              fontSize: '11px',
+              marginBottom: '8px',
+              lineHeight: 1.4,
+            }}
+          >
+            Only needed if you upload photos or PDFs. Pasted text is parsed locally with no AI and no key.
+          </div>
           <div className="rx-provider-selector">
             {AI_PROVIDERS.map(provider => (
               <button
@@ -295,13 +396,40 @@ export default function Settings({ onBack }: SettingsProps) {
             ))}
           </div>
           <div className="rx-field" style={{ marginTop: '8px' }}>
-            <label>API Key ({currentProvider.label})</label>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: '8px',
+              }}
+            >
+              <label style={{ margin: 0 }}>API Key ({currentProvider.label})</label>
+              <a
+                href={currentProvider.signupUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '11px', color: '#1a73e8', textDecoration: 'none' }}
+              >
+                How to get my key {'\u2197'}
+              </a>
+            </div>
             <input
               type="password"
               value={settings.apiKey}
               onChange={(e) => update('apiKey', e.target.value)}
               placeholder={currentProvider.placeholder}
             />
+            <small
+              style={{
+                color: '#80868b',
+                fontSize: '11px',
+                display: 'block',
+                marginTop: '4px',
+              }}
+            >
+              {currentProvider.freeHint}
+            </small>
           </div>
           {currentProvider.needsModel && (
             <div className="rx-field" style={{ marginTop: '8px' }}>
@@ -317,6 +445,41 @@ export default function Settings({ onBack }: SettingsProps) {
               </small>
             </div>
           )}
+          <div
+            style={{
+              marginTop: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              type="button"
+              className="rx-btn rx-btn-sm rx-btn-outline"
+              onClick={handleTestAiKey}
+              disabled={aiTestLoading || !settings.apiKey.trim()}
+            >
+              {aiTestLoading ? 'Testing...' : 'Test key'}
+            </button>
+            {aiTestResult?.ok === true && (
+              <span style={{ color: '#188038', fontSize: '12px' }}>
+                {'\u2713'} Key works
+              </span>
+            )}
+            {aiTestResult?.ok === false && (
+              <span
+                style={{
+                  color: '#d93025',
+                  fontSize: '12px',
+                  flex: '1 1 100%',
+                  lineHeight: 1.4,
+                }}
+              >
+                {aiTestResult.message}
+              </span>
+            )}
+          </div>
         </section>
 
         {/* Routine */}

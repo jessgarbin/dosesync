@@ -8,7 +8,9 @@ import { stripCodeFences, validateParsedPrescription } from './utils';
 // Using it as a meta-provider lets users pick any vision-capable model
 // without the extension shipping a new adapter per vendor.
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_AUTH_URL = 'https://openrouter.ai/api/v1/auth/key';
 const REQUEST_TIMEOUT_MS = 60_000;
+const TEST_TIMEOUT_MS = 10_000;
 
 function buildMessages(input: PrescriptionInput): Array<Record<string, unknown>> {
   if (input.type === 'text') {
@@ -113,4 +115,41 @@ export async function parsePrescription(
     throw new Error('AI returned invalid JSON. Try again or switch to a model with stronger JSON output (e.g., gpt-4o-mini).');
   }
   return validateParsedPrescription(raw);
+}
+
+/**
+ * Validates the OpenRouter API key via /auth/key, which returns
+ * key metadata (label, usage, limit) without consuming any tokens.
+ */
+export async function testKey(settings: Settings): Promise<void> {
+  const apiKey = settings.apiKey.trim();
+  if (!apiKey) throw new Error('Paste your OpenRouter API key first.');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(OPENROUTER_AUTH_URL, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://github.com/jessgarbin/dosesync',
+        'X-Title': 'DoseSync',
+      },
+      signal: controller.signal,
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Invalid OpenRouter key. Check that you copied the whole value.');
+    }
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`OpenRouter test failed (${response.status}): ${errorText || 'unknown error'}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('OpenRouter test timed out. Check your connection and try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

@@ -5,7 +5,9 @@ import { stripCodeFences, validateParsedPrescription } from './utils';
 
 const GEMINI_URL =
   'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
+const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1/models';
 const REQUEST_TIMEOUT_MS = 60_000;
+const TEST_TIMEOUT_MS = 10_000;
 
 function buildParts(input: PrescriptionInput) {
   const parts: Array<Record<string, unknown>> = [];
@@ -87,4 +89,37 @@ export async function parsePrescription(
     throw new Error('AI returned invalid JSON. Try again or use a clearer prescription.');
   }
   return validateParsedPrescription(raw);
+}
+
+/**
+ * Validates the Gemini API key by calling the models list endpoint.
+ * Free (doesn't consume tokens), fast, and returns 401/403 for bad keys.
+ */
+export async function testKey(settings: Settings): Promise<void> {
+  const apiKey = settings.apiKey.trim();
+  if (!apiKey) throw new Error('Paste your Gemini API key first.');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(GEMINI_MODELS_URL, {
+      method: 'GET',
+      headers: { 'x-goog-api-key': apiKey },
+      signal: controller.signal,
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Invalid Gemini key. Check that you copied the whole value.');
+    }
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Gemini test failed (${response.status}): ${errorText || 'unknown error'}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Gemini test timed out. Check your connection and try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

@@ -178,10 +178,14 @@ You'll need **one** of the following calendars connected:
 - **Google Calendar**: a Google Cloud project with Calendar API enabled and an OAuth2 client ID configured in `manifest.json` (default path, uses `chrome.identity`).
 - **Microsoft Calendar (Outlook)**: an Azure AD app registration (SPA platform) with the extension's `chrome-extension://<id>/` redirect URI and `Calendars.ReadWrite` + `offline_access` delegated permissions. Paste the application (client) ID in Settings and click Connect.
 
-And, **optionally**, one AI key — only if you want to upload photo/PDF prescriptions (pasted text works without any AI key):
-- **Gemini** (free at [aistudio.google.com](https://aistudio.google.com))
-- **Claude** (`sk-ant-…`)
-- **OpenRouter** (`sk-or-v1-…`) + a vision-capable model slug (e.g. `google/gemini-2.0-flash-exp:free`)
+And, **optionally**, one AI key — only if you want to upload photo/PDF prescriptions (pasted text works without any AI key). The extension's Settings screen links directly to the signup page for each provider and has a **Test key** button that validates your key before the first real parse:
+- **Gemini** — free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no credit card
+- **Claude** — paid, [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+- **OpenRouter** — free and paid models, [openrouter.ai/keys](https://openrouter.ai/keys); also needs a vision-capable model slug (e.g. `google/gemini-2.0-flash-exp:free`)
+
+## Privacy
+
+DoseSync runs entirely in your browser. No backend, no analytics, no telemetry. Prescription content is sent only to the AI provider *you* configured (using *your* key), and calendar events only to Google or Microsoft. See [docs/privacy.md](docs/privacy.md) for the full policy, including an explanation of every permission the extension requests.
 
 ## Context
 

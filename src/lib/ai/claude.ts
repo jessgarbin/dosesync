@@ -5,6 +5,7 @@ import { stripCodeFences, validateParsedPrescription } from './utils';
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 const REQUEST_TIMEOUT_MS = 60_000;
+const TEST_TIMEOUT_MS = 10_000;
 
 function buildContent(input: PrescriptionInput) {
   const content: Array<Record<string, unknown>> = [];
@@ -102,4 +103,57 @@ export async function parsePrescription(
     throw new Error('AI returned invalid JSON. Try again or use a clearer prescription.');
   }
   return validateParsedPrescription(raw);
+}
+
+/**
+ * Validates the Claude API key with the minimum-cost messages call
+ * (max_tokens: 1, cheap model). Anthropic has no free validation
+ * endpoint, so this costs a fraction of a cent per test.
+ */
+export async function testKey(settings: Settings): Promise<void> {
+  const apiKey = settings.apiKey.trim();
+  if (!apiKey) throw new Error('Paste your Claude API key first.');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(CLAUDE_URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+      signal: controller.signal,
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Invalid Claude key. Check that you copied the whole value.');
+    }
+    if (response.status === 429) {
+      throw new Error('Claude rate limit hit. Wait a minute and try again.');
+    }
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      let detail = '';
+      try {
+        detail = JSON.parse(errorText)?.error?.message ?? errorText;
+      } catch {
+        detail = errorText;
+      }
+      throw new Error(`Claude test failed (${response.status}): ${detail || 'unknown error'}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Claude test timed out. Check your connection and try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

@@ -11,4 +11,11 @@ export interface AIProviderModule {
     input: PrescriptionInput,
     settings: Settings,
   ) => Promise<ParsedPrescription>;
+  /**
+   * Cheapest possible call to validate the API key. Throws on invalid key,
+   * quota exhaustion, network failure, etc. Resolves silently on success.
+   * Used by the Settings UI "Test key" button so users can verify their
+   * key before they waste a real parsing call on a broken configuration.
+   */
+  testKey: (settings: Settings) => Promise<void>;
 }
