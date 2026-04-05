@@ -184,7 +184,7 @@ export default function StepReview({
   // Validation: report whether everything is valid for creating events
   useEffect(() => {
     const allMedsValid = medications.length > 0 && medications.every(
-      m => m.nome.trim() !== '' && m.dosagem.trim() !== '',
+      m => m.nome.trim() !== '',
     );
     onValidChange(allMedsValid && !overflowInfo);
   }, [medications, overflowInfo, onValidChange]);

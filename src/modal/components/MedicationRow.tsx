@@ -62,7 +62,7 @@ export default function MedicationRow({
     onChange({ ...medication, [field]: value });
   };
 
-  const isValid = medication.nome.trim() !== '' && medication.dosagem.trim() !== '';
+  const isValid = medication.nome.trim() !== '';
 
   const durLabel = medication.duracao_dias ? `${medication.duracao_dias}d` : 'Ongoing';
   const condShort = COND_SHORT[medication.condicao];
@@ -90,7 +90,7 @@ export default function MedicationRow({
           <div className="rx-card-grid" style={{ marginTop: '8px' }}>
             <div className="rx-field">
               <label>Dosage</label>
-              <input className={!medication.dosagem.trim() ? 'rx-field-error' : ''} value={medication.dosagem} onChange={(e) => update('dosagem', e.target.value)} placeholder="e.g. 500mg" />
+              <input value={medication.dosagem} onChange={(e) => update('dosagem', e.target.value)} placeholder="e.g. 500mg (optional)" />
             </div>
             <div className="rx-field">
               <label>Instructions</label>
