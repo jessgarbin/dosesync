@@ -1,6 +1,6 @@
 # DoseSync
 
-A Chrome extension that turns medical prescriptions into Google Calendar events with reminders. Upload a photo or PDF and AI extracts the medications, or paste the prescription text and a local bilingual (PT + EN) parser handles it — then the extension creates recurring events with the right times, intervals, and meal-based scheduling.
+A Chrome extension that turns medical prescriptions into Google Calendar or Microsoft (Outlook) Calendar events with reminders. Upload a photo or PDF and AI extracts the medications, or paste the prescription text and a local bilingual (PT + EN) parser handles it — then the extension creates recurring events with the right times, intervals, and meal-based scheduling.
 
 ## The problem
 
@@ -15,7 +15,7 @@ DoseSync solves this by integrating directly into Google Calendar, the tool peop
 ```
 Prescription input
     │
-    ├── Photo / PDF ─► AI parsing (Gemini Flash or Claude Vision)
+    ├── Photo / PDF ─► AI parsing (Gemini Flash, Claude Vision, or OpenRouter)
     │                   extracts medications, dosages, frequencies
     │
     └── Pasted text ─► Local regex parser (bilingual PT + EN)
@@ -28,15 +28,15 @@ Prescription input
                        Smart scheduling ── meal-based time slots,
                               │              interval calculations,
                               ▼              food condition offsets
-                       Google Calendar ── recurring events with
-                                           reminders per dose
+                    Google or Microsoft ── recurring events with
+                       Calendar             reminders per dose
 ```
 
 1. User clicks **"+ Create"** in Google Calendar → sees **"Schedule medications"** injected in the dropdown
 2. Chooses between uploading a file (photo/PDF) or pasting prescription text
 3. Photo/PDF go through AI; pasted text goes through a local regex parser — both produce editable medication cards
 4. Extension calculates optimal times based on the user's meal routine
-5. One click creates all recurring events with reminders
+5. One click creates all recurring events with reminders on the chosen calendar (Google or Microsoft)
 
 The extension also works from its popup (click the extension icon) for quick access outside Calendar.
 
@@ -80,9 +80,13 @@ Each dose of each medication becomes a separate recurring Google Calendar event 
 └───────────────────────┬─────────────────────────────┘
                         │
 ┌─ Service Worker ──────┴─────────────────────────────┐
-│  ├─ AI parsing for photo/PDF (Gemini / Claude)      │
-│  ├─ OAuth2 via chrome.identity                      │
-│  └─ Google Calendar REST API (event creation)       │
+│  ├─ AI provider factory (Gemini / Claude / OpenRouter)
+│  │    → photo/PDF parsing only                      │
+│  ├─ OAuth2: chrome.identity (Google) or             │
+│  │          PKCE launchWebAuthFlow (Microsoft)      │
+│  └─ Calendar provider factory                       │
+│       ├─ Google Calendar REST API                   │
+│       └─ Microsoft Graph API (/me/events)           │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -98,9 +102,9 @@ Pasted text is parsed locally in the content script via `src/lib/parser/text-par
 | UI | React 19 + Tailwind CSS 4 |
 | Build | Vite 8 + CRXJS plugin |
 | Language | TypeScript 6 |
-| AI (photo/PDF only) | Gemini Flash 2.0 (free tier) / Claude Vision |
+| AI (photo/PDF only) | Gemini Flash 2.0 (free tier) / Claude Vision / OpenRouter (user-chosen model) |
 | Text parser | Local regex, bilingual PT + EN (no network) |
-| Calendar | Google Calendar API via `chrome.identity` OAuth2 |
+| Calendar | Google Calendar API (`chrome.identity`) or Microsoft Graph API (PKCE OAuth2) |
 | Storage | `chrome.storage.local` |
 
 **Zero backend.** Everything runs client-side. The user provides their own AI API key. No server, no hosting, no recurring costs.
@@ -125,8 +129,13 @@ src/
 │   ├── Settings.tsx             # API keys, meal times, reminders
 │   └── main.tsx                 # Popup entry point
 ├── lib/
-│   ├── ai/                      # Gemini + Claude providers
-│   ├── calendar/                # OAuth + Calendar API client
+│   ├── ai/                      # AIProviderModule interface
+│   │   ├── gemini.ts            # Gemini Flash adapter
+│   │   ├── claude.ts            # Claude Vision adapter
+│   │   └── openrouter.ts        # OpenRouter (user-chosen model)
+│   ├── calendar/                # CalendarProviderModule interface
+│   │   ├── google/              # chrome.identity OAuth + Calendar API
+│   │   └── microsoft/           # PKCE OAuth + Graph API + RRULE→MS translator
 │   ├── parser/                  # Text-based prescription parser
 │   ├── storage/                 # chrome.storage wrapper
 │   └── schedule-utils.ts        # Core scheduling logic
@@ -165,9 +174,14 @@ Load the extension:
 4. Open [Google Calendar](https://calendar.google.com)
 5. Click **"+ Create"** → you should see **"Schedule medications"**
 
-You'll need:
-- A **Google Cloud project** with Calendar API enabled and an OAuth2 client ID configured in `manifest.json`
-- Optional: a **Gemini API key** (free at [aistudio.google.com](https://aistudio.google.com)) or a **Claude API key** — only required if you want to upload photo/PDF prescriptions. Pasted text works without any AI key.
+You'll need **one** of the following calendars connected:
+- **Google Calendar**: a Google Cloud project with Calendar API enabled and an OAuth2 client ID configured in `manifest.json` (default path, uses `chrome.identity`).
+- **Microsoft Calendar (Outlook)**: an Azure AD app registration (SPA platform) with the extension's `chrome-extension://<id>/` redirect URI and `Calendars.ReadWrite` + `offline_access` delegated permissions. Paste the application (client) ID in Settings and click Connect.
+
+And, **optionally**, one AI key — only if you want to upload photo/PDF prescriptions (pasted text works without any AI key):
+- **Gemini** (free at [aistudio.google.com](https://aistudio.google.com))
+- **Claude** (`sk-ant-…`)
+- **OpenRouter** (`sk-or-v1-…`) + a vision-capable model slug (e.g. `google/gemini-2.0-flash-exp:free`)
 
 ## Context
 
