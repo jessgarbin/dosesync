@@ -1,6 +1,6 @@
 # DoseSync
 
-A Chrome extension that turns medical prescriptions into Google Calendar events with reminders. Upload a photo, paste text, or drop a PDF — AI extracts the medications, and the extension creates recurring events with the right times, intervals, and meal-based scheduling.
+A Chrome extension that turns medical prescriptions into Google Calendar events with reminders. Upload a photo or PDF and AI extracts the medications, or paste the prescription text and a local bilingual (PT + EN) parser handles it — then the extension creates recurring events with the right times, intervals, and meal-based scheduling.
 
 ## The problem
 
@@ -13,25 +13,28 @@ DoseSync solves this by integrating directly into Google Calendar, the tool peop
 ## How it works
 
 ```
-Prescription (photo, PDF, or text)
-        │
-        ▼
-   AI parsing ──── Gemini Flash or Claude Vision
-        │              extracts medications,
-        ▼              dosages, frequencies
-   Editable cards ── review, adjust, fix
-        │
-        ▼
-   Smart scheduling ── meal-based time slots,
-        │                interval calculations,
-        ▼                food condition offsets
-   Google Calendar ── recurring events with
-                       reminders per dose
+Prescription input
+    │
+    ├── Photo / PDF ─► AI parsing (Gemini Flash or Claude Vision)
+    │                   extracts medications, dosages, frequencies
+    │
+    └── Pasted text ─► Local regex parser (bilingual PT + EN)
+                        matches dose, frequency, food condition
+                              │
+                              ▼
+                       Editable cards ── review, adjust, fix
+                              │
+                              ▼
+                       Smart scheduling ── meal-based time slots,
+                              │              interval calculations,
+                              ▼              food condition offsets
+                       Google Calendar ── recurring events with
+                                           reminders per dose
 ```
 
 1. User clicks **"+ Create"** in Google Calendar → sees **"Schedule medications"** injected in the dropdown
-2. Uploads prescription or pastes text
-3. AI extracts medications into editable cards
+2. Chooses between uploading a file (photo/PDF) or pasting prescription text
+3. Photo/PDF go through AI; pasted text goes through a local regex parser — both produce editable medication cards
 4. Extension calculates optimal times based on the user's meal routine
 5. One click creates all recurring events with reminders
 
@@ -77,11 +80,13 @@ Each dose of each medication becomes a separate recurring Google Calendar event 
 └───────────────────────┬─────────────────────────────┘
                         │
 ┌─ Service Worker ──────┴─────────────────────────────┐
-│  ├─ AI parsing (Gemini Flash / Claude Vision)       │
+│  ├─ AI parsing for photo/PDF (Gemini / Claude)      │
 │  ├─ OAuth2 via chrome.identity                      │
 │  └─ Google Calendar REST API (event creation)       │
-└──────────────��────────────────────────────────���─────┘
+└─────────────────────────────────────────────────────┘
 ```
+
+Pasted text is parsed locally in the content script via `src/lib/parser/text-parser.ts` — no network round-trip, no AI, no API key required for that path.
 
 **Why the Service Worker handles API calls:** Content scripts on `calendar.google.com` inherit Google's CSP, which blocks fetch to external domains. The service worker runs in the extension context with no CSP restrictions, and API keys stay out of the page.
 
@@ -93,7 +98,8 @@ Each dose of each medication becomes a separate recurring Google Calendar event 
 | UI | React 19 + Tailwind CSS 4 |
 | Build | Vite 8 + CRXJS plugin |
 | Language | TypeScript 6 |
-| AI | Gemini Flash 2.0 (free tier) / Claude Vision |
+| AI (photo/PDF only) | Gemini Flash 2.0 (free tier) / Claude Vision |
+| Text parser | Local regex, bilingual PT + EN (no network) |
 | Calendar | Google Calendar API via `chrome.identity` OAuth2 |
 | Storage | `chrome.storage.local` |
 
@@ -160,8 +166,8 @@ Load the extension:
 5. Click **"+ Create"** → you should see **"Schedule medications"**
 
 You'll need:
-- A **Gemini API key** (free at [aistudio.google.com](https://aistudio.google.com)) or a **Claude API key**
 - A **Google Cloud project** with Calendar API enabled and an OAuth2 client ID configured in `manifest.json`
+- Optional: a **Gemini API key** (free at [aistudio.google.com](https://aistudio.google.com)) or a **Claude API key** — only required if you want to upload photo/PDF prescriptions. Pasted text works without any AI key.
 
 ## Context
 
