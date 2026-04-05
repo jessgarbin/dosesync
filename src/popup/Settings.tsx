@@ -7,6 +7,7 @@ import {
   isMicrosoftConnected,
 } from '../lib/calendar/microsoft/auth';
 import { getAIProvider } from '../lib/ai';
+import { HAS_BUNDLED_CLIENT_ID } from '../lib/calendar/microsoft/config';
 
 interface AIProviderInfo {
   value: AIProvider;
@@ -317,42 +318,44 @@ export default function Settings({ onBack }: SettingsProps) {
             </div>
           ) : (
             <>
-              <div className="rx-field" style={{ marginTop: '8px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    justifyContent: 'space-between',
-                    gap: '8px',
-                  }}
-                >
-                  <label style={{ margin: 0 }}>Azure AD client (application) ID</label>
-                  <a
-                    href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: '11px', color: '#1a73e8', textDecoration: 'none' }}
+              {!HAS_BUNDLED_CLIENT_ID && (
+                <div className="rx-field" style={{ marginTop: '8px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                    }}
                   >
-                    How to register an app {'\u2197'}
-                  </a>
+                    <label style={{ margin: 0 }}>Azure AD client (application) ID</label>
+                    <a
+                      href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '11px', color: '#1a73e8', textDecoration: 'none' }}
+                    >
+                      How to register an app {'\u2197'}
+                    </a>
+                  </div>
+                  <input
+                    type="text"
+                    value={settings.microsoftClientId}
+                    onChange={(e) => update('microsoftClientId', e.target.value)}
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                  />
+                  <small
+                    style={{
+                      color: '#80868b',
+                      fontSize: '11px',
+                      display: 'block',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Dev build — register your own app for local testing. Production builds ship with a bundled client ID.
+                  </small>
                 </div>
-                <input
-                  type="text"
-                  value={settings.microsoftClientId}
-                  onChange={(e) => update('microsoftClientId', e.target.value)}
-                  placeholder="00000000-0000-0000-0000-000000000000"
-                />
-                <small
-                  style={{
-                    color: '#80868b',
-                    fontSize: '11px',
-                    display: 'block',
-                    marginTop: '4px',
-                  }}
-                >
-                  Register a single-tenant or multi-tenant app with Calendars.ReadWrite permission.
-                </small>
-              </div>
+              )}
               <div className="rx-calendar-status-row" style={{ marginTop: '8px' }}>
                 <span className={`rx-calendar-dot${msConnected ? ' connected' : ''}`} />
                 <div style={{ flex: 1, minWidth: 0 }}>

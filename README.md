@@ -174,9 +174,15 @@ Load the extension:
 4. Open [Google Calendar](https://calendar.google.com)
 5. Click **"+ Create"** → you should see **"Schedule medications"**
 
-You'll need **one** of the following calendars connected:
-- **Google Calendar**: a Google Cloud project with Calendar API enabled and an OAuth2 client ID configured in `manifest.json` (default path, uses `chrome.identity`).
-- **Microsoft Calendar (Outlook)**: an Azure AD app registration (SPA platform) with the extension's `chrome-extension://<id>/` redirect URI and `Calendars.ReadWrite` + `offline_access` delegated permissions. Paste the application (client) ID in Settings and click Connect.
+### End users
+
+If you install the extension from the Chrome Web Store, you just click **Connect** for Google or Microsoft in Settings — no developer account required. Both the Google OAuth client and the Microsoft Azure AD app ship bundled with the extension.
+
+### Developers building from source
+
+If you're building the extension yourself:
+- **Google Calendar**: replace the `client_id` in `manifest.json` with an OAuth2 client ID from your own Google Cloud project (Calendar API enabled).
+- **Microsoft Calendar (Outlook)**: copy `.env.example` to `.env.local` and set `VITE_MICROSOFT_CLIENT_ID` to your Azure AD application (client) ID. See `.env.example` for step-by-step Azure registration instructions. If you leave the env var empty, the Settings screen will expose a manual "paste your client ID" field for local testing.
 
 And, **optionally**, one AI key — only if you want to upload photo/PDF prescriptions (pasted text works without any AI key). The extension's Settings screen links directly to the signup page for each provider and has a **Test key** button that validates your key before the first real parse:
 - **Gemini** — free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey), no credit card

@@ -1,4 +1,5 @@
 import { getSettings } from '../../storage/index';
+import { BUILD_MICROSOFT_CLIENT_ID } from './config';
 
 // Microsoft identity platform endpoints (common tenant = personal + work).
 const AUTHORITY = 'https://login.microsoftonline.com/common';
@@ -56,11 +57,15 @@ async function clearTokens(): Promise<void> {
 }
 
 async function getClientId(): Promise<string> {
+  // 1. Preferred path: env var baked in at build time (distributed extension).
+  if (BUILD_MICROSOFT_CLIENT_ID) return BUILD_MICROSOFT_CLIENT_ID;
+
+  // 2. Dev / legacy path: user pasted their own client ID in settings.
   const settings = await getSettings();
   const clientId = settings.microsoftClientId?.trim();
   if (!clientId) {
     throw new Error(
-      'Microsoft client ID not configured. Register an Azure AD app and paste the client (application) ID in settings.',
+      'Microsoft Calendar is not configured for this build. Register an Azure AD app and set VITE_MICROSOFT_CLIENT_ID in .env.local (or paste the client ID in Settings for local testing).',
     );
   }
   return clientId;
