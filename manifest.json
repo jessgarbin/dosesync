@@ -29,7 +29,10 @@
     "https://www.googleapis.com/calendar/*",
     "https://generativelanguage.googleapis.com/v1/*",
     "https://api.anthropic.com/v1/*",
-    "https://oauth2.googleapis.com/*"
+    "https://openrouter.ai/api/*",
+    "https://oauth2.googleapis.com/*",
+    "https://graph.microsoft.com/v1.0/*",
+    "https://login.microsoftonline.com/*"
   ],
   "oauth2": {
     "client_id": "268249018189-k2da5issr310bvls3qqqdpt98lmag2jq.apps.googleusercontent.com",

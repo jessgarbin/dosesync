@@ -2,8 +2,7 @@ import type { PrescriptionInput } from '../types/prescription';
 import type { CalendarEvent } from '../types/schedule';
 import type { Settings } from '../types/settings';
 import { getAIProvider } from '../lib/ai/index';
-import { getAuthToken, refreshAuthToken } from '../lib/calendar/auth';
-import { createEvents } from '../lib/calendar/client';
+import { getCalendarProvider } from '../lib/calendar/index';
 import { getSettings, saveSettings } from '../lib/storage/index';
 
 type MessageAction = 'parse-prescription' | 'create-events' | 'get-settings' | 'save-settings';
@@ -52,6 +51,14 @@ async function handleMessage(message: Message): Promise<unknown> {
   }
 }
 
+function providerLabel(aiProvider: Settings['aiProvider']): string {
+  switch (aiProvider) {
+    case 'gemini': return 'Gemini';
+    case 'claude': return 'Claude';
+    case 'openrouter': return 'OpenRouter';
+  }
+}
+
 async function handleParsePrescription(input: PrescriptionInput) {
   const now = Date.now();
   if (now - lastParseTs < PARSE_COOLDOWN_MS) {
@@ -60,16 +67,15 @@ async function handleParsePrescription(input: PrescriptionInput) {
   lastParseTs = now;
 
   const settings = await getSettings();
-  const apiKey = settings.apiKey;
 
-  if (!apiKey) {
+  if (!settings.apiKey?.trim()) {
     throw new Error(
-      `${settings.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} API key not configured. Go to the extension settings.`,
+      `${providerLabel(settings.aiProvider)} API key not configured. Go to the extension settings.`,
     );
   }
 
   const provider = getAIProvider(settings.aiProvider);
-  const result = await provider.parsePrescription(input, apiKey);
+  const result = await provider.parsePrescription(input, settings);
 
   return { success: true, data: result };
 }
@@ -79,7 +85,9 @@ async function handleCreateEvents(events: CalendarEvent[]) {
     throw new Error('No events to create.');
   }
 
-  const result = await createEvents(events, getAuthToken, refreshAuthToken);
+  const settings = await getSettings();
+  const provider = getCalendarProvider(settings.calendarProvider);
+  const result = await provider.createEvents(events);
 
   return { success: true, data: result };
 }

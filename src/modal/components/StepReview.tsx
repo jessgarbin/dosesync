@@ -9,7 +9,7 @@ import {
   buildDosesFromMedications,
   buildCalendarEventsFromDoses,
 } from '../../lib/schedule-utils';
-import { MAX_EVENTS_PER_BATCH } from '../../lib/calendar/client';
+import { MAX_EVENTS_PER_BATCH } from '../../lib/calendar/index';
 import { MAX_MEDICATIONS } from '../../lib/ai/utils';
 import MedicationRow from './MedicationRow';
 

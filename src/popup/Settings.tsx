@@ -1,10 +1,27 @@
 import { useEffect, useState } from 'react';
-import type { Settings as SettingsType, AIProvider } from '../types/settings';
+import type { Settings as SettingsType, AIProvider, CalendarProvider } from '../types/settings';
 import { DEFAULT_SETTINGS } from '../types/settings';
+import {
+  getMicrosoftAuthToken,
+  revokeMicrosoftAuthToken,
+  isMicrosoftConnected,
+} from '../lib/calendar/microsoft/auth';
 
-const AI_PROVIDERS: { value: AIProvider; label: string; placeholder: string }[] = [
-  { value: 'gemini', label: 'Gemini Flash', placeholder: 'AIza...' },
-  { value: 'claude', label: 'Claude', placeholder: 'sk-ant-...' },
+const AI_PROVIDERS: {
+  value: AIProvider;
+  label: string;
+  placeholder: string;
+  /** Whether this provider needs an extra model slug input. */
+  needsModel: boolean;
+}[] = [
+  { value: 'gemini', label: 'Gemini Flash', placeholder: 'AIza...', needsModel: false },
+  { value: 'claude', label: 'Claude', placeholder: 'sk-ant-...', needsModel: false },
+  { value: 'openrouter', label: 'OpenRouter', placeholder: 'sk-or-v1-...', needsModel: true },
+];
+
+const CALENDAR_PROVIDERS: { value: CalendarProvider; label: string }[] = [
+  { value: 'google', label: 'Google' },
+  { value: 'microsoft', label: 'Microsoft' },
 ];
 
 interface SettingsProps {
@@ -17,25 +34,32 @@ const REMINDER_MAX_MINUTES = 40320;
 function hhmmToMinutes(value: string): number {
   const [h, m] = value.split(':').map((n) => parseInt(n, 10));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return NaN;
-  return h * 60 + m;
+  return h! * 60 + m!;
 }
 
 export default function Settings({ onBack }: SettingsProps) {
   const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [calendarConnected, setCalendarConnected] = useState(false);
-  const [calendarEmail, setCalendarEmail] = useState<string | null>(null);
-  const [calendarLoading, setCalendarLoading] = useState(false);
 
-  async function fetchCalendarEmail(token: string) {
+  // Google calendar connection state
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Microsoft calendar connection state
+  const [msConnected, setMsConnected] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
+  const [msError, setMsError] = useState<string | null>(null);
+
+  async function fetchGoogleEmail(token: string) {
     try {
       const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setCalendarEmail(data.id ?? null);
+        setGoogleEmail(data.id ?? null);
       }
     } catch { /* ignore */ }
   }
@@ -43,29 +67,31 @@ export default function Settings({ onBack }: SettingsProps) {
   useEffect(() => {
     chrome.identity?.getAuthToken({ interactive: false }).then((result) => {
       const token = result?.token;
-      setCalendarConnected(!!token);
-      if (token) fetchCalendarEmail(token);
+      setGoogleConnected(!!token);
+      if (token) fetchGoogleEmail(token);
     }).catch(() => {
-      setCalendarConnected(false);
+      setGoogleConnected(false);
     });
+
+    isMicrosoftConnected().then(setMsConnected).catch(() => setMsConnected(false));
   }, []);
 
-  async function handleConnect() {
-    setCalendarLoading(true);
+  async function handleGoogleConnect() {
+    setGoogleLoading(true);
     try {
       const result = await chrome.identity.getAuthToken({ interactive: true });
       const token = result?.token;
-      setCalendarConnected(!!token);
-      if (token) fetchCalendarEmail(token);
+      setGoogleConnected(!!token);
+      if (token) fetchGoogleEmail(token);
     } catch {
-      setCalendarConnected(false);
+      setGoogleConnected(false);
     } finally {
-      setCalendarLoading(false);
+      setGoogleLoading(false);
     }
   }
 
-  async function handleDisconnect() {
-    setCalendarLoading(true);
+  async function handleGoogleDisconnect() {
+    setGoogleLoading(true);
     try {
       const result = await chrome.identity.getAuthToken({ interactive: false });
       const token = result?.token;
@@ -78,17 +104,46 @@ export default function Settings({ onBack }: SettingsProps) {
         });
       }
     } catch { /* revocation is best-effort */ }
-    setCalendarConnected(false);
-    setCalendarEmail(null);
-    setCalendarLoading(false);
+    setGoogleConnected(false);
+    setGoogleEmail(null);
+    setGoogleLoading(false);
+  }
+
+  async function handleMsConnect() {
+    setMsError(null);
+    const clientId = settings.microsoftClientId.trim();
+    if (!clientId) {
+      setMsError('Paste the Azure AD application (client) ID first, then save, then connect.');
+      return;
+    }
+    setMsLoading(true);
+    try {
+      await getMicrosoftAuthToken();
+      setMsConnected(true);
+    } catch (e) {
+      setMsError(e instanceof Error ? e.message : String(e));
+      setMsConnected(false);
+    } finally {
+      setMsLoading(false);
+    }
+  }
+
+  async function handleMsDisconnect() {
+    setMsLoading(true);
+    try {
+      await revokeMicrosoftAuthToken();
+    } catch { /* ignore */ }
+    setMsConnected(false);
+    setMsLoading(false);
   }
 
   useEffect(() => {
     chrome.storage.local.get('settings', (result) => {
       if (result.settings) {
-        // Migrate old settings (geminiApiKey/claudeApiKey → apiKey)
+        // Merge with defaults to pick up new fields added in later versions.
         const old = result.settings as Record<string, unknown>;
         const migrated = { ...DEFAULT_SETTINGS, ...old };
+        // Legacy key migration (geminiApiKey/claudeApiKey → apiKey)
         if (!old.apiKey && (old.geminiApiKey || old.claudeApiKey)) {
           migrated.apiKey = old.aiProvider === 'claude'
             ? (old.claudeApiKey as string)
@@ -113,14 +168,12 @@ export default function Settings({ onBack }: SettingsProps) {
   function handleSave() {
     setError(null);
 
-    // Validate reminder minutes
     const reminder = Number(settings.reminderMinutesBefore);
     if (!Number.isFinite(reminder) || reminder < 0 || reminder > REMINDER_MAX_MINUTES) {
       setError(`Reminder must be between 0 and ${REMINDER_MAX_MINUTES} minutes (4 weeks).`);
       return;
     }
 
-    // Validate meal time order: breakfast < lunch < dinner < bedtime
     const cafe = hhmmToMinutes(settings.mealTimes.cafe);
     const almoco = hhmmToMinutes(settings.mealTimes.almoco);
     const jantar = hhmmToMinutes(settings.mealTimes.jantar);
@@ -134,10 +187,17 @@ export default function Settings({ onBack }: SettingsProps) {
       return;
     }
 
-    // Trim API key to avoid auth failures from accidental whitespace
+    // OpenRouter requires a model slug. Other providers use their own defaults.
+    if (settings.aiProvider === 'openrouter' && !settings.openrouterModel.trim()) {
+      setError('Set an OpenRouter model slug (e.g., "google/gemini-2.0-flash-exp:free").');
+      return;
+    }
+
     const normalized: SettingsType = {
       ...settings,
       apiKey: settings.apiKey.trim(),
+      openrouterModel: settings.openrouterModel.trim(),
+      microsoftClientId: settings.microsoftClientId.trim(),
       reminderMinutesBefore: Math.floor(reminder),
     };
 
@@ -159,30 +219,70 @@ export default function Settings({ onBack }: SettingsProps) {
       </div>
 
       <div className="rx-body rx-settings-form">
-        {/* Google Calendar */}
+        {/* Calendar provider */}
         <section className="rx-settings-section">
-          <h3 className="rx-settings-section-title">Google Calendar</h3>
-          <div className="rx-calendar-status-row">
-            <span className={`rx-calendar-dot${calendarConnected ? ' connected' : ''}`} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {calendarConnected
-                ? <span className="rx-calendar-email">{calendarEmail ?? 'Connected'}</span>
-                : <span>Not connected</span>
-              }
-            </div>
-            <button
-              className={`rx-btn rx-btn-sm ${calendarConnected ? 'rx-btn-outline' : 'rx-btn-primary'}`}
-              onClick={calendarConnected ? handleDisconnect : handleConnect}
-              disabled={calendarLoading}
-            >
-              {calendarLoading ? '...' : calendarConnected ? 'Disconnect' : 'Connect'}
-            </button>
+          <h3 className="rx-settings-section-title">Calendar</h3>
+          <div className="rx-provider-selector">
+            {CALENDAR_PROVIDERS.map(provider => (
+              <button
+                key={provider.value}
+                className={`rx-provider-option${settings.calendarProvider === provider.value ? ' active' : ''}`}
+                onClick={() => update('calendarProvider', provider.value)}
+              >
+                {provider.label}
+              </button>
+            ))}
           </div>
+
+          {settings.calendarProvider === 'google' ? (
+            <div className="rx-calendar-status-row" style={{ marginTop: '8px' }}>
+              <span className={`rx-calendar-dot${googleConnected ? ' connected' : ''}`} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {googleConnected
+                  ? <span className="rx-calendar-email">{googleEmail ?? 'Connected'}</span>
+                  : <span>Not connected</span>
+                }
+              </div>
+              <button
+                className={`rx-btn rx-btn-sm ${googleConnected ? 'rx-btn-outline' : 'rx-btn-primary'}`}
+                onClick={googleConnected ? handleGoogleDisconnect : handleGoogleConnect}
+                disabled={googleLoading}
+              >
+                {googleLoading ? '...' : googleConnected ? 'Disconnect' : 'Connect'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="rx-field" style={{ marginTop: '8px' }}>
+                <label>Azure AD client (application) ID</label>
+                <input
+                  type="text"
+                  value={settings.microsoftClientId}
+                  onChange={(e) => update('microsoftClientId', e.target.value)}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                />
+              </div>
+              <div className="rx-calendar-status-row" style={{ marginTop: '8px' }}>
+                <span className={`rx-calendar-dot${msConnected ? ' connected' : ''}`} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {msConnected ? <span>Connected</span> : <span>Not connected</span>}
+                </div>
+                <button
+                  className={`rx-btn rx-btn-sm ${msConnected ? 'rx-btn-outline' : 'rx-btn-primary'}`}
+                  onClick={msConnected ? handleMsDisconnect : handleMsConnect}
+                  disabled={msLoading}
+                >
+                  {msLoading ? '...' : msConnected ? 'Disconnect' : 'Connect'}
+                </button>
+              </div>
+              {msError && <div className="rx-error" style={{ marginTop: '6px' }}>{msError}</div>}
+            </>
+          )}
         </section>
 
         {/* AI Model */}
         <section className="rx-settings-section">
-          <h3 className="rx-settings-section-title">AI Model</h3>
+          <h3 className="rx-settings-section-title">AI Model (photo/PDF only)</h3>
           <div className="rx-provider-selector">
             {AI_PROVIDERS.map(provider => (
               <button
@@ -203,6 +303,20 @@ export default function Settings({ onBack }: SettingsProps) {
               placeholder={currentProvider.placeholder}
             />
           </div>
+          {currentProvider.needsModel && (
+            <div className="rx-field" style={{ marginTop: '8px' }}>
+              <label>Model slug</label>
+              <input
+                type="text"
+                value={settings.openrouterModel}
+                onChange={(e) => update('openrouterModel', e.target.value)}
+                placeholder="google/gemini-2.0-flash-exp:free"
+              />
+              <small style={{ color: '#80868b', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                Use a vision-capable model for photo/PDF uploads.
+              </small>
+            </div>
+          )}
         </section>
 
         {/* Routine */}

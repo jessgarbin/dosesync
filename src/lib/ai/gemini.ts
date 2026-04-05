@@ -1,4 +1,5 @@
 import type { PrescriptionInput, ParsedPrescription } from '../../types/prescription';
+import type { Settings } from '../../types/settings';
 import { PHARMACIST_PROMPT } from './prompt';
 import { stripCodeFences, validateParsedPrescription } from './utils';
 
@@ -29,8 +30,11 @@ function buildParts(input: PrescriptionInput) {
 
 export async function parsePrescription(
   input: PrescriptionInput,
-  apiKey: string,
+  settings: Settings,
 ): Promise<ParsedPrescription> {
+  const apiKey = settings.apiKey.trim();
+  if (!apiKey) throw new Error('Gemini API key not configured.');
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 

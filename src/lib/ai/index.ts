@@ -1,11 +1,10 @@
 import type { AIProvider } from '../../types/settings';
-import type { PrescriptionInput, ParsedPrescription } from '../../types/prescription';
+import type { AIProviderModule } from './types';
 import * as gemini from './gemini';
 import * as claude from './claude';
+import * as openrouter from './openrouter';
 
-export interface AIProviderModule {
-  parsePrescription: (input: PrescriptionInput, apiKey: string) => Promise<ParsedPrescription>;
-}
+export type { AIProviderModule } from './types';
 
 export function getAIProvider(provider: AIProvider): AIProviderModule {
   switch (provider) {
@@ -13,6 +12,8 @@ export function getAIProvider(provider: AIProvider): AIProviderModule {
       return gemini;
     case 'claude':
       return claude;
+    case 'openrouter':
+      return openrouter;
     default:
       throw new Error(`Unknown AI provider: ${provider as string}`);
   }

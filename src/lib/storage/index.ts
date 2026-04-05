@@ -1,9 +1,22 @@
 import type { Settings } from '../../types/settings';
 import { DEFAULT_SETTINGS } from '../../types/settings';
 
+/**
+ * Reads stored settings and merges them with DEFAULT_SETTINGS so older
+ * installs don't crash after a version bump that introduces new fields
+ * (e.g. openrouterModel, calendarProvider, microsoftClientId).
+ */
 export async function getSettings(): Promise<Settings> {
   const result = await chrome.storage.local.get('settings');
-  return (result['settings'] as Settings | undefined) ?? DEFAULT_SETTINGS;
+  const stored = result['settings'] as Partial<Settings> | undefined;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(stored ?? {}),
+    mealTimes: {
+      ...DEFAULT_SETTINGS.mealTimes,
+      ...(stored?.mealTimes ?? {}),
+    },
+  };
 }
 
 export async function saveSettings(partial: Partial<Settings>): Promise<Settings> {

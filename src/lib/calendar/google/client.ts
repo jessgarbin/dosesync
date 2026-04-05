@@ -1,11 +1,11 @@
-import type { CalendarEvent } from '../../types/schedule';
+import type { CalendarEvent } from '../../../types/schedule';
+import type { CalendarProviderModule, CalendarResult } from '../types';
+import { MAX_EVENTS_PER_BATCH } from '../types';
+import { getAuthToken, refreshAuthToken } from './auth';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const DELAY_BETWEEN_EVENTS_MS = 200;
 const MAX_RETRIES = 3;
-// Hard cap on batch size. At 200ms delay this is ~20s worst case, which keeps
-// the UX predictable and protects the daily Calendar API quota.
-export const MAX_EVENTS_PER_BATCH = 100;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -100,37 +100,30 @@ async function postEvent(
   throw lastError ?? new Error('Failed to create event after multiple attempts.');
 }
 
-async function createEvent(
+async function createSingleEvent(
   event: CalendarEvent,
-  getToken: () => Promise<string>,
-  refreshToken: () => Promise<string>,
   timeZone: string,
 ): Promise<unknown> {
-  const token = await getToken();
+  const token = await getAuthToken();
   try {
     return await postEvent(event, token, timeZone);
   } catch (error) {
     if (error instanceof TokenExpiredError) {
-      // Try once with a refreshed token
-      const freshToken = await refreshToken();
+      const freshToken = await refreshAuthToken();
       return postEvent(event, freshToken, timeZone);
     }
     throw error;
   }
 }
 
-export async function createEvents(
-  events: CalendarEvent[],
-  getToken: () => Promise<string>,
-  refreshToken: () => Promise<string>,
-): Promise<{ success: number; failed: number; errors: string[] }> {
+async function createEvents(events: CalendarEvent[]): Promise<CalendarResult> {
   if (events.length > MAX_EVENTS_PER_BATCH) {
     throw new Error(
       `Too many events to create (${events.length}). Maximum is ${MAX_EVENTS_PER_BATCH} per batch — please reduce the number of medications or shorten the durations.`,
     );
   }
 
-  const initialToken = await getToken();
+  const initialToken = await getAuthToken();
   const timeZone = await getCalendarTimeZone(initialToken);
   let success = 0;
   let failed = 0;
@@ -139,7 +132,7 @@ export async function createEvents(
   for (let i = 0; i < events.length; i++) {
     const event = events[i]!;
     try {
-      await createEvent(event, getToken, refreshToken, timeZone);
+      await createSingleEvent(event, timeZone);
       success++;
     } catch (error) {
       failed++;
@@ -154,3 +147,8 @@ export async function createEvents(
 
   return { success, failed, errors };
 }
+
+export const googleCalendarProvider: CalendarProviderModule = {
+  id: 'google',
+  createEvents,
+};
