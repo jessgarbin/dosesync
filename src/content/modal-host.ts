@@ -6,6 +6,14 @@ const HOST_ID = 'rx-scheduler-host';
 
 let shadowRoot: ShadowRoot | null = null;
 let isOpen = false;
+let previousBodyOverflow: string | null = null;
+
+function onEscapeKey(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isOpen) {
+    event.stopPropagation();
+    closePrescriptionModal();
+  }
+}
 
 function getOrCreateHost(): ShadowRoot {
   if (shadowRoot) return shadowRoot;
@@ -21,10 +29,22 @@ function getOrCreateHost(): ShadowRoot {
   style.textContent = getInlineStyles();
   shadowRoot.appendChild(style);
 
-  // Container para o React
+  // Backdrop — captures clicks outside the modal to close it
+  const backdrop = document.createElement('div');
+  backdrop.id = 'rx-backdrop';
+  backdrop.className = 'rx-overlay';
+  backdrop.addEventListener('click', (e) => {
+    // Only close if the click hit the backdrop itself, not a descendant
+    if (e.target === backdrop) {
+      closePrescriptionModal();
+    }
+  });
+  shadowRoot.appendChild(backdrop);
+
+  // Container para o React (inside the backdrop so clicks on it don't bubble close)
   const appContainer = document.createElement('div');
   appContainer.id = 'rx-app-root';
-  shadowRoot.appendChild(appContainer);
+  backdrop.appendChild(appContainer);
 
   const root = createRoot(appContainer);
   root.render(createElement(App, {
@@ -69,7 +89,9 @@ function getInlineStyles(): string {
     }
 
     /* Modal container */
-    .rx-modal {
+    .rx-modal, .rx-app {
+      display: flex;
+      flex-direction: column;
       background: white;
       border-radius: 12px;
       box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
@@ -646,14 +668,24 @@ function getInlineStyles(): string {
 }
 
 export function openPrescriptionModal(): void {
-  const sr = getOrCreateHost();
+  getOrCreateHost();
   const host = document.getElementById(HOST_ID);
   if (host) host.style.display = 'block';
+  if (!isOpen) {
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onEscapeKey, true);
+  }
   isOpen = true;
 }
 
 export function closePrescriptionModal(): void {
   const host = document.getElementById(HOST_ID);
   if (host) host.style.display = 'none';
+  if (isOpen) {
+    document.body.style.overflow = previousBodyOverflow ?? '';
+    previousBodyOverflow = null;
+    document.removeEventListener('keydown', onEscapeKey, true);
+  }
   isOpen = false;
 }

@@ -9,6 +9,8 @@ import {
   buildDosesFromMedications,
   buildCalendarEventsFromDoses,
 } from '../../lib/schedule-utils';
+import { MAX_EVENTS_PER_BATCH } from '../../lib/calendar/client';
+import { MAX_MEDICATIONS } from '../../lib/ai/utils';
 import MedicationRow from './MedicationRow';
 
 const MED_COLORS = [
@@ -182,12 +184,13 @@ export default function StepReview({
   }, [medications]);
 
   // Validation: report whether everything is valid for creating events
+  const eventsOverLimit = events.length > MAX_EVENTS_PER_BATCH;
   useEffect(() => {
     const allMedsValid = medications.length > 0 && medications.every(
       m => m.nome.trim() !== '',
     );
-    onValidChange(allMedsValid && !overflowInfo);
-  }, [medications, overflowInfo, onValidChange]);
+    onValidChange(allMedsValid && !overflowInfo && !eventsOverLimit);
+  }, [medications, overflowInfo, eventsOverLimit, onValidChange]);
 
   // Color map
   const colorMap = useMemo(() => {
@@ -246,9 +249,20 @@ export default function StepReview({
         );
       })}
 
-      <button className="rx-add-med" onClick={handleAddMed}>
+      <button
+        className="rx-add-med"
+        onClick={handleAddMed}
+        disabled={medications.length >= MAX_MEDICATIONS}
+        title={medications.length >= MAX_MEDICATIONS ? `Maximum ${MAX_MEDICATIONS} medications reached` : undefined}
+      >
         + Add medication
       </button>
+
+      {eventsOverLimit && (
+        <div className="rx-error" style={{ marginTop: '12px' }}>
+          Too many events ({events.length}). Maximum is {MAX_EVENTS_PER_BATCH} per batch — reduce medications or shorten durations.
+        </div>
+      )}
 
       {events.length > 0 && (
         <div className="rx-review-summary">

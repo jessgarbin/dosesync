@@ -11,9 +11,19 @@ interface SettingsProps {
   onBack: () => void;
 }
 
+// Google Calendar allows reminders up to 4 weeks (40320 minutes) before the event.
+const REMINDER_MAX_MINUTES = 40320;
+
+function hhmmToMinutes(value: string): number {
+  const [h, m] = value.split(':').map((n) => parseInt(n, 10));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return NaN;
+  return h * 60 + m;
+}
+
 export default function Settings({ onBack }: SettingsProps) {
   const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarEmail, setCalendarEmail] = useState<string | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -101,7 +111,38 @@ export default function Settings({ onBack }: SettingsProps) {
   }
 
   function handleSave() {
-    chrome.storage.local.set({ settings }, () => {
+    setError(null);
+
+    // Validate reminder minutes
+    const reminder = Number(settings.reminderMinutesBefore);
+    if (!Number.isFinite(reminder) || reminder < 0 || reminder > REMINDER_MAX_MINUTES) {
+      setError(`Reminder must be between 0 and ${REMINDER_MAX_MINUTES} minutes (4 weeks).`);
+      return;
+    }
+
+    // Validate meal time order: breakfast < lunch < dinner < bedtime
+    const cafe = hhmmToMinutes(settings.mealTimes.cafe);
+    const almoco = hhmmToMinutes(settings.mealTimes.almoco);
+    const jantar = hhmmToMinutes(settings.mealTimes.jantar);
+    const dormir = hhmmToMinutes(settings.mealTimes.dormir);
+    if ([cafe, almoco, jantar, dormir].some((n) => !Number.isFinite(n))) {
+      setError('All meal times must be valid.');
+      return;
+    }
+    if (!(cafe < almoco && almoco < jantar && jantar < dormir)) {
+      setError('Meal times must be in order: Breakfast < Lunch < Dinner < Bedtime.');
+      return;
+    }
+
+    // Trim API key to avoid auth failures from accidental whitespace
+    const normalized: SettingsType = {
+      ...settings,
+      apiKey: settings.apiKey.trim(),
+      reminderMinutesBefore: Math.floor(reminder),
+    };
+
+    chrome.storage.local.set({ settings: normalized }, () => {
+      setSettings(normalized);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
@@ -187,12 +228,14 @@ export default function Settings({ onBack }: SettingsProps) {
         <section className="rx-settings-section">
           <h3 className="rx-settings-section-title">Reminders</h3>
           <div className="rx-field">
-            <label>Minutes before</label>
-            <input type="number" min={0} value={settings.reminderMinutesBefore}
+            <label>Minutes before (max {REMINDER_MAX_MINUTES})</label>
+            <input type="number" min={0} max={REMINDER_MAX_MINUTES} value={settings.reminderMinutesBefore}
               onChange={(e) => update('reminderMinutesBefore', Number(e.target.value))}
               style={{ width: '80px' }} />
           </div>
         </section>
+
+        {error && <div className="rx-error">{error}</div>}
       </div>
 
       <div className="rx-footer">

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import type { Medication } from '../../types/medication';
 import type { InputType } from '../../types/prescription';
 import { parseTextPrescription } from '../../lib/parser/text-parser';
+import { MAX_MEDICATIONS } from '../../lib/ai/utils';
 
 interface StepInputProps {
   onParsed: (medications: Medication[]) => void;
@@ -13,6 +14,11 @@ interface StepInputProps {
 }
 
 type TabMode = 'upload' | 'text';
+
+// Hard cap on the pasted text. ~10k characters covers any realistic
+// prescription while protecting against pasting entire documents and
+// running up AI API costs / timeouts.
+const MAX_TEXT_LENGTH = 10_000;
 
 function normalizeMeds(raw: Record<string, unknown>[]): Medication[] {
   return raw.map((m, i) => ({
@@ -86,14 +92,23 @@ export default function StepInput({ onParsed, onError, onLoading, loading, text,
   const processText = useCallback(() => {
     if (!text.trim()) return;
 
+    if (text.length > MAX_TEXT_LENGTH) {
+      onError(`Text too long (${text.length} characters). Maximum is ${MAX_TEXT_LENGTH}.`);
+      return;
+    }
+
     onError(null);
     const meds = parseTextPrescription(text.trim());
 
-    if (meds.length > 0) {
-      onParsed(meds);
-    } else {
+    if (meds.length === 0) {
       onError('Could not extract medications from the text. Write one medication per line.');
+      return;
     }
+    if (meds.length > MAX_MEDICATIONS) {
+      onError(`Too many medications detected (${meds.length}). Maximum is ${MAX_MEDICATIONS} — please split into multiple prescriptions.`);
+      return;
+    }
+    onParsed(meds);
   }, [text, onParsed, onError]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -164,12 +179,16 @@ export default function StepInput({ onParsed, onError, onLoading, loading, text,
             className="rx-textarea"
             placeholder={"Paste the prescription text here...\n\nExample:\nAmoxicillin 500mg - 1 capsule every 8 hours for 7 days\nIbuprofen 600mg - 1 tablet every 12 hours for 5 days"}
             value={text}
+            maxLength={MAX_TEXT_LENGTH}
             onChange={(e) => onTextChange(e.target.value)}
           />
-          <div style={{ marginTop: '12px', textAlign: 'right' }}>
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: text.length > MAX_TEXT_LENGTH * 0.9 ? '#d93025' : '#80868b' }}>
+              {text.length} / {MAX_TEXT_LENGTH}
+            </span>
             <button
               className="rx-btn rx-btn-primary"
-              disabled={!text.trim()}
+              disabled={!text.trim() || text.length > MAX_TEXT_LENGTH}
               onClick={processText}
             >
               Analyze prescription

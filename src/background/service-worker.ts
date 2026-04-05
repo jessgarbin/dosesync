@@ -2,7 +2,7 @@ import type { PrescriptionInput } from '../types/prescription';
 import type { CalendarEvent } from '../types/schedule';
 import type { Settings } from '../types/settings';
 import { getAIProvider } from '../lib/ai/index';
-import { getAuthToken } from '../lib/calendar/auth';
+import { getAuthToken, refreshAuthToken } from '../lib/calendar/auth';
 import { createEvents } from '../lib/calendar/client';
 import { getSettings, saveSettings } from '../lib/storage/index';
 
@@ -79,8 +79,7 @@ async function handleCreateEvents(events: CalendarEvent[]) {
     throw new Error('No events to create.');
   }
 
-  const token = await getAuthToken();
-  const result = await createEvents(events, token);
+  const result = await createEvents(events, getAuthToken, refreshAuthToken);
 
   return { success: true, data: result };
 }

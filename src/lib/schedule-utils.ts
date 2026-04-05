@@ -8,6 +8,29 @@ export function formatDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Parses an "HH:MM" string into total minutes since midnight.
+ * Returns a safe fallback (0 = midnight) for invalid input to avoid
+ * NaN propagating into arithmetic downstream.
+ */
+function parseTimeToMinutes(value: string, fallback = 0): number {
+  if (typeof value !== 'string') return fallback;
+  const parts = value.split(':');
+  if (parts.length !== 2) return fallback;
+  const h = parseInt(parts[0]!, 10);
+  const m = parseInt(parts[1]!, 10);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return fallback;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return fallback;
+  return h * 60 + m;
+}
+
+function minutesToTime(mins: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.floor(mins)));
+  const h = Math.floor(clamped / 60).toString().padStart(2, '0');
+  const m = (clamped % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
 function condLabel(cond: FoodCondition): string {
   switch (cond) {
     case 'jejum': return 'Fasting';
@@ -24,15 +47,14 @@ function generateIntervalTimes(
   startTime: string,
   label: string,
 ): { horario: string; refeicaoRef: string }[] {
-  const [startH, startM] = startTime.split(':').map(Number) as [number, number];
   const results: { horario: string; refeicaoRef: string }[] = [];
-  let mins = startH * 60 + startM;
+  let mins = parseTimeToMinutes(startTime, 7 * 60);
+  const stepMins = intervalHours * 60;
+  if (stepMins <= 0) return results;
 
   while (mins < 24 * 60) {
-    const h = Math.floor(mins / 60).toString().padStart(2, '0');
-    const m = (mins % 60).toString().padStart(2, '0');
-    results.push({ horario: `${h}:${m}`, refeicaoRef: `Every ${intervalHours}h - ${label}` });
-    mins += intervalHours * 60;
+    results.push({ horario: minutesToTime(mins), refeicaoRef: `Every ${intervalHours}h - ${label}` });
+    mins += stepMins;
   }
 
   return results;
@@ -46,26 +68,20 @@ export function getTimesForFrequency(
   const { cafe, almoco, jantar, dormir } = mealTimes;
 
   const offsetMin = (cond: FoodCondition, baseTime: string): string => {
-    const [h, m] = baseTime.split(':').map(Number) as [number, number];
-    let mins = h * 60 + m;
+    let mins = parseTimeToMinutes(baseTime, 8 * 60);
 
     switch (cond) {
       case 'jejum': mins = Math.max(0, mins - 60); break;
       case 'antes_refeicao': mins -= 30; break;
       case 'com_refeicao': break;
       case 'apos_refeicao': mins += 30; break;
-      case 'antes_dormir': {
-        const [dh, dm] = dormir.split(':').map(Number) as [number, number];
-        mins = dh * 60 + dm - 30;
+      case 'antes_dormir':
+        mins = parseTimeToMinutes(dormir, 22 * 60) - 30;
         break;
-      }
       case 'qualquer': break;
     }
 
-    if (mins < 0) mins = 0;
-    const finalH = Math.floor(mins / 60).toString().padStart(2, '0');
-    const finalM = (mins % 60).toString().padStart(2, '0');
-    return `${finalH}:${finalM}`;
+    return minutesToTime(mins);
   };
 
   if (condicao === 'antes_dormir') {
@@ -85,18 +101,16 @@ export function getTimesForFrequency(
     };
     const intervalH = intervalMap[freq];
     if (intervalH) {
-      const [cafeH, cafeM] = cafe.split(':').map(Number) as [number, number];
-      const cafeMins = cafeH * 60 + cafeM;
-      const expectedCount = Math.floor(24 / intervalH);
+      const cafeMins = parseTimeToMinutes(cafe, 7 * 60);
+      const expectedCount = Math.max(1, Math.floor(24 / intervalH));
       const neededSpanMins = (expectedCount - 1) * intervalH * 60;
       let startMins = cafeMins;
       if (startMins + neededSpanMins >= 24 * 60) {
         startMins = Math.floor((24 * 60 - neededSpanMins - 1) / 15) * 15;
       }
-      if (startMins < 0) startMins = 0;
-      const sH = Math.floor(startMins / 60).toString().padStart(2, '0');
-      const sM = (startMins % 60).toString().padStart(2, '0');
-      return generateIntervalTimes(intervalH, `${sH}:${sM}`, condLabel(condicao));
+      // Clamp to a valid daytime range — never negative, never past end of day
+      startMins = Math.max(0, Math.min(startMins, 24 * 60 - 1));
+      return generateIntervalTimes(intervalH, minutesToTime(startMins), condLabel(condicao));
     }
   }
 
@@ -108,16 +122,14 @@ export function getTimesForFrequency(
     const fixedCount = countMap[freq];
     if (fixedCount) {
       if (fixedCount === 1) return [{ horario: cafe, refeicaoRef: 'Morning' }];
-      const [cafeH, cafeM] = cafe.split(':').map(Number) as [number, number];
-      const [dormirH, dormirM] = dormir.split(':').map(Number) as [number, number];
-      const cafeMins = cafeH * 60 + cafeM;
-      const dormirMins = dormirH * 60 + dormirM;
-      const interval = (dormirMins - cafeMins) / fixedCount;
+      const cafeMins = parseTimeToMinutes(cafe, 7 * 60);
+      const dormirMins = parseTimeToMinutes(dormir, 22 * 60);
+      // If meal times are out of order, fall back to a sensible default span
+      const span = dormirMins > cafeMins ? dormirMins - cafeMins : 14 * 60;
+      const interval = span / fixedCount;
       return Array.from({ length: fixedCount }, (_, i) => {
         const mins = Math.round(cafeMins + i * interval);
-        const h = Math.floor(mins / 60).toString().padStart(2, '0');
-        const m = (mins % 60).toString().padStart(2, '0');
-        return { horario: `${h}:${m}`, refeicaoRef: `Dose ${i + 1} of ${fixedCount}` };
+        return { horario: minutesToTime(mins), refeicaoRef: `Dose ${i + 1} of ${fixedCount}` };
       });
     }
     return [{ horario: cafe, refeicaoRef: 'Morning' }];
@@ -205,8 +217,7 @@ export function buildCalendarEventsFromDoses(
   const nowMins = now.getHours() * 60 + now.getMinutes();
 
   for (const dose of doses) {
-    const [h, m] = dose.horario.split(':').map(Number) as [number, number];
-    const doseMins = h * 60 + m;
+    const doseMins = parseTimeToMinutes(dose.horario, 8 * 60);
     const duracao = durationMap.get(dose.medicationId);
 
     let effectiveDate = startDate;
@@ -221,7 +232,7 @@ export function buildCalendarEventsFromDoses(
       }
     }
 
-    const startISO = `${effectiveDate}T${dose.horario}:00`;
+    const startISO = `${effectiveDate}T${minutesToTime(doseMins)}:00`;
     let endMins = doseMins + 15;
     let endDate = effectiveDate;
     if (endMins >= 24 * 60) {
@@ -230,9 +241,7 @@ export function buildCalendarEventsFromDoses(
       next.setDate(next.getDate() + 1);
       endDate = formatDate(next);
     }
-    const endH = Math.floor(endMins / 60).toString().padStart(2, '0');
-    const endM = (endMins % 60).toString().padStart(2, '0');
-    const endISO = `${endDate}T${endH}:${endM}:00`;
+    const endISO = `${endDate}T${minutesToTime(endMins)}:00`;
 
     const recurrence: string[] = [];
     if (effectiveCount) {

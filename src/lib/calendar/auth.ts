@@ -14,6 +14,22 @@ export async function getAuthToken(): Promise<string> {
   }
 }
 
+/**
+ * Forces a fresh token by clearing the cached one first. Use this after a 401
+ * from Google's API to recover from a stale/expired token.
+ */
+export async function refreshAuthToken(): Promise<string> {
+  try {
+    const current = await chrome.identity.getAuthToken({ interactive: false });
+    if (current?.token) {
+      await chrome.identity.removeCachedAuthToken({ token: current.token });
+    }
+  } catch {
+    // ignore — we'll try to get a new token regardless
+  }
+  return getAuthToken();
+}
+
 export async function revokeAuthToken(token: string): Promise<void> {
   await chrome.identity.removeCachedAuthToken({ token });
   const res = await fetch('https://oauth2.googleapis.com/revoke', {

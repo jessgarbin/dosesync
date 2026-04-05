@@ -127,15 +127,22 @@ function injectMenuItem(): void {
 
 }
 
+let activeObserver: MutationObserver | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function startMenuObserver(): void {
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Idempotent: avoid stacking multiple observers on HMR / re-injection
+  if (activeObserver) return;
 
   const observer = new MutationObserver((mutations) => {
+    // Only care about mutations that add Element nodes (skip text/comment churn)
     for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(injectMenuItem, 100);
-        break;
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(injectMenuItem, 100);
+          return;
+        }
       }
     }
   });
@@ -144,4 +151,21 @@ export function startMenuObserver(): void {
     childList: true,
     subtree: true,
   });
+
+  activeObserver = observer;
+
+  // Clean up on page unload to avoid leaking observer/timer across
+  // bfcache restores or SPA navigations that tear down the content script
+  window.addEventListener('pagehide', stopMenuObserver, { once: true });
+}
+
+export function stopMenuObserver(): void {
+  if (activeObserver) {
+    activeObserver.disconnect();
+    activeObserver = null;
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
 }

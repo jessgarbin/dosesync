@@ -114,7 +114,10 @@ export default function App({ onShowSettings }: AppProps) {
     setStep('input');
   }, []);
 
+  const confirmingRef = useRef(false);
   const handleConfirm = useCallback(async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -141,6 +144,7 @@ export default function App({ onShowSettings }: AppProps) {
       setError(`Extension communication error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
+      confirmingRef.current = false;
     }
   }, [calendarEvents]);
 
@@ -215,7 +219,7 @@ export default function App({ onShowSettings }: AppProps) {
           <button
             className="rx-btn rx-btn-primary"
             onClick={handleConfirm}
-            disabled={calendarEvents.length === 0 || !reviewValid}
+            disabled={calendarEvents.length === 0 || !reviewValid || loading}
           >
             Create {calendarEvents.length} event{calendarEvents.length !== 1 ? 's' : ''}
           </button>
