@@ -10,41 +10,75 @@ interface ParsedLine {
   observacoes: string | null;
 }
 
-// Regex patterns (Portuguese — parses Brazilian prescriptions)
-const DOSAGEM_RE = /\b(\d+(?:[.,]\d+)?\s*(?:mg|g|ml|mcg|ui|%|gotas?))\b/i;
-const POSOLOGIA_RE = /\b(\d+)\s*(comprimido|comprimidos|capsula|capsulas|cp|caps?|gota|gotas|ml|sachê|sachês|ampola|ampolas|drágea|drágeas)\b/i;
-const DURACAO_RE = /\b(?:por\s+)?(\d+)\s*dias?\b/i;
+// Regex patterns — bilingual (Portuguese and English)
+// Units are international so a single pattern works.
+const DOSAGEM_RE = /\b(\d+(?:[.,]\d+)?\s*(?:mg|g|ml|mcg|ui|iu|%|gotas?|drops?))\b/i;
+
+// Pharmaceutical forms (PT + EN). Captures quantity and unit in one shot.
+// Order matters: longer/more specific forms first so "capsules" wins over "caps".
+const POSOLOGIA_RE = /\b(\d+)\s*(comprimidos?|c[aá]psulas?|capsules?|tablets?|pills?|doses?|gotas?|drops?|sach[eê]s?|sachets?|ampolas?|ampoules?|dr[aá]geas?|dragees?|ml|cp|caps?)\b/i;
+
+// Duration (PT "por X dias" / EN "for X days")
+const DURACAO_RE = /\b(?:por|durante|for|during)?\s*(\d+)\s*(?:dias?|days?)\b/i;
 
 const FREQUENCIA_MAP: [RegExp, Frequency][] = [
-  [/\b4[\/h]\s*(?:em\s*)?4\s*h/i, 'cada_4h'],
-  [/\bde\s+4\s+em\s+4\s+h/i, 'cada_4h'],
-  [/\bcada\s+4\s*h/i, 'cada_4h'],
-  [/\b6[\/h]\s*(?:em\s*)?6\s*h/i, 'cada_6h'],
-  [/\bde\s+6\s+em\s+6\s+h/i, 'cada_6h'],
-  [/\bcada\s+6\s*h/i, 'cada_6h'],
-  [/\b8[\/h]\s*(?:em\s*)?8\s*h/i, 'cada_8h'],
-  [/\bde\s+8\s+em\s+8\s+h/i, 'cada_8h'],
-  [/\bcada\s+8\s*h/i, 'cada_8h'],
-  [/\b12[\/h]\s*(?:em\s*)?12\s*h/i, 'cada_12h'],
-  [/\bde\s+12\s+em\s+12\s+h/i, 'cada_12h'],
-  [/\bcada\s+12\s*h/i, 'cada_12h'],
-  [/\b4\s*(?:x|vezes)\s*(?:ao\s*)?dia/i, '4x_dia'],
-  [/\b3\s*(?:x|vezes)\s*(?:ao\s*)?dia/i, '3x_dia'],
-  [/\b2\s*(?:x|vezes)\s*(?:ao\s*)?dia/i, '2x_dia'],
-  [/\b1\s*(?:x|vez)\s*(?:ao\s*)?dia/i, '1x_dia'],
+  // Every Xh — PT + EN + medical abbreviations (q4h, q6h, etc.)
+  [/\b(?:cada|de)?\s*4\s*(?:em\s*4\s*)?h(?:oras?|ours?)?\b/i, 'cada_4h'],
+  [/\bevery\s+4\s*(?:h(?:ours?)?)?\b/i, 'cada_4h'],
+  [/\bq\s*4\s*h\b/i, 'cada_4h'],
+  [/\b(?:cada|de)?\s*6\s*(?:em\s*6\s*)?h(?:oras?|ours?)?\b/i, 'cada_6h'],
+  [/\bevery\s+6\s*(?:h(?:ours?)?)?\b/i, 'cada_6h'],
+  [/\bq\s*6\s*h\b/i, 'cada_6h'],
+  [/\b(?:cada|de)?\s*8\s*(?:em\s*8\s*)?h(?:oras?|ours?)?\b/i, 'cada_8h'],
+  [/\bevery\s+8\s*(?:h(?:ours?)?)?\b/i, 'cada_8h'],
+  [/\bq\s*8\s*h\b/i, 'cada_8h'],
+  [/\b(?:cada|de)?\s*12\s*(?:em\s*12\s*)?h(?:oras?|ours?)?\b/i, 'cada_12h'],
+  [/\bevery\s+12\s*(?:h(?:ours?)?)?\b/i, 'cada_12h'],
+  [/\bq\s*12\s*h\b/i, 'cada_12h'],
+  // N times/day — numeric form (PT "3x ao dia" / EN "3 times a day")
+  [/\b4\s*(?:x|vezes|times?)\s*(?:a|ao|per)?\s*(?:dia|day|daily)/i, '4x_dia'],
+  [/\b3\s*(?:x|vezes|times?)\s*(?:a|ao|per)?\s*(?:dia|day|daily)/i, '3x_dia'],
+  [/\b2\s*(?:x|vezes|times?)\s*(?:a|ao|per)?\s*(?:dia|day|daily)/i, '2x_dia'],
+  [/\b1\s*(?:x|vez|time)\s*(?:a|ao|per)?\s*(?:dia|day|daily)/i, '1x_dia'],
+  // N times/day — spelled out in English
+  [/\bfour\s+times\s+(?:a\s+day|daily)\b/i, '4x_dia'],
+  [/\bthree\s+times\s+(?:a\s+day|daily)\b/i, '3x_dia'],
+  [/\btwice\s+(?:a\s+day|daily)\b/i, '2x_dia'],
+  [/\bonce\s+(?:a\s+day|daily)\b/i, '1x_dia'],
+  // Latin medical abbreviations (must be checked before single-letter matches)
+  [/\bqid\b/i, '4x_dia'],
+  [/\btid\b/i, '3x_dia'],
+  [/\bbid\b/i, '2x_dia'],
+  [/\bqd\b/i, '1x_dia'],
 ];
 
 const CONDICAO_MAP: [RegExp, FoodCondition][] = [
+  // Fasting / empty stomach
   [/\bem\s*jejum\b/i, 'jejum'],
+  [/\bfasting\b/i, 'jejum'],
+  [/\bon\s+(?:an\s+)?empty\s+stomach\b/i, 'jejum'],
+  // Before meal
   [/\bantes\s*(?:da|de)?\s*refei[çc][ãa]o\b/i, 'antes_refeicao'],
+  [/\bbefore\s+(?:a\s+)?meals?\b/i, 'antes_refeicao'],
+  [/\bac\b/i, 'antes_refeicao'], // "ante cibum" medical abbreviation
+  // With food
   [/\bcom\s*(?:a\s*)?(?:comida|refei[çc][ãa]o|alimento)\b/i, 'com_refeicao'],
+  [/\bwith\s+(?:food|meals?)\b/i, 'com_refeicao'],
+  // After meal
   [/\bap[oó]s\s*(?:a\s*)?(?:comida|refei[çc][ãa]o|alimento)\b/i, 'apos_refeicao'],
   [/\bdepois\s*(?:da|de)?\s*(?:comida|refei[çc][ãa]o)\b/i, 'apos_refeicao'],
+  [/\bafter\s+(?:a\s+)?meals?\b/i, 'apos_refeicao'],
+  [/\bpc\b/i, 'apos_refeicao'], // "post cibum" medical abbreviation
+  // Before bed / at night
   [/\bantes\s*de\s*dormir\b/i, 'antes_dormir'],
   [/\b[àa]\s*noite\b/i, 'antes_dormir'],
+  [/\bbefore\s+bed(?:time)?\b/i, 'antes_dormir'],
+  [/\bat\s+bedtime\b/i, 'antes_dormir'],
+  [/\bat\s+night\b/i, 'antes_dormir'],
+  [/\bhs\b/i, 'antes_dormir'], // "hora somni" medical abbreviation
 ];
 
-const SOS_RE = /\b(?:se\s+necess[aá]rio|sos|em\s+caso\s+de\s+dor|quando\s+necess[aá]rio|s[\/]?n)\b/i;
+const SOS_RE = /\b(?:se\s+necess[aá]rio|quando\s+necess[aá]rio|em\s+caso\s+de\s+dor|sos|s[\/]?n|as\s+needed|if\s+needed|when\s+needed|prn)\b/i;
 
 function parseLine(line: string): ParsedLine | null {
   const trimmed = line.trim();
@@ -54,14 +88,55 @@ function parseLine(line: string): ParsedLine | null {
   const dosagemMatch = trimmed.match(DOSAGEM_RE);
   const dosagem = dosagemMatch?.[1] ?? '';
 
-  // Instructions
+  // Instructions — normalize PT and abbreviated forms to English
   const posologiaMatch = trimmed.match(POSOLOGIA_RE);
   let posologia = '1 tablet';
   if (posologiaMatch) {
-    const qty = posologiaMatch[1];
-    let form = posologiaMatch[2]!.toLowerCase();
-    // Normalize abbreviated forms
-    if (form === 'cp' || form === 'cap' || form === 'caps') form = qty === '1' ? 'capsule' : 'capsules';
+    const qty = posologiaMatch[1]!;
+    const raw = posologiaMatch[2]!.toLowerCase();
+    const plural = qty !== '1';
+    const FORM_MAP: Record<string, [string, string]> = {
+      // [singular, plural]
+      'cp': ['capsule', 'capsules'],
+      'cap': ['capsule', 'capsules'],
+      'caps': ['capsule', 'capsules'],
+      'capsule': ['capsule', 'capsules'],
+      'capsules': ['capsule', 'capsules'],
+      'capsula': ['capsule', 'capsules'],
+      'capsulas': ['capsule', 'capsules'],
+      'cápsula': ['capsule', 'capsules'],
+      'cápsulas': ['capsule', 'capsules'],
+      'comprimido': ['tablet', 'tablets'],
+      'comprimidos': ['tablet', 'tablets'],
+      'tablet': ['tablet', 'tablets'],
+      'tablets': ['tablet', 'tablets'],
+      'pill': ['pill', 'pills'],
+      'pills': ['pill', 'pills'],
+      'dose': ['dose', 'doses'],
+      'doses': ['dose', 'doses'],
+      'gota': ['drop', 'drops'],
+      'gotas': ['drop', 'drops'],
+      'drop': ['drop', 'drops'],
+      'drops': ['drop', 'drops'],
+      'sache': ['sachet', 'sachets'],
+      'saches': ['sachet', 'sachets'],
+      'sachê': ['sachet', 'sachets'],
+      'sachês': ['sachet', 'sachets'],
+      'sachet': ['sachet', 'sachets'],
+      'sachets': ['sachet', 'sachets'],
+      'ampola': ['ampoule', 'ampoules'],
+      'ampolas': ['ampoule', 'ampoules'],
+      'ampoule': ['ampoule', 'ampoules'],
+      'ampoules': ['ampoule', 'ampoules'],
+      'dragea': ['dragee', 'dragees'],
+      'drageas': ['dragee', 'dragees'],
+      'drágea': ['dragee', 'dragees'],
+      'drágeas': ['dragee', 'dragees'],
+      'dragee': ['dragee', 'dragees'],
+      'dragees': ['dragee', 'dragees'],
+    };
+    const mapped = FORM_MAP[raw];
+    const form = mapped ? mapped[plural ? 1 : 0] : raw;
     posologia = `${qty} ${form}`;
   }
 
@@ -101,11 +176,12 @@ function parseLine(line: string): ParsedLine | null {
     nome = trimmed.slice(0, dosagemMatch.index).trim();
   }
   if (!nome) {
-    // Take the first words that aren't numbers/units
+    // Take the first words that aren't numbers/units/stop-words (PT + EN)
+    const STOP_WORDS = /^(de|em|por|ao|da|com|antes|ap[oó]s|dia|dias|hora|horas|vezes|vez|cada|c[aá]psulas?|comprimidos?|gotas?|of|in|for|to|the|with|before|after|day|days|hour|hours|times?|every|tablets?|pills?|capsules?|drops?|daily|fasting|on|empty|stomach|bed|bedtime|night|needed|as)$/i;
     const words = trimmed.split(/[\s\-,]+/);
     const nameWords: string[] = [];
     for (const w of words) {
-      if (/^\d/.test(w) || DOSAGEM_RE.test(w) || /^(de|em|por|ao|da|com|antes|após|dia|dias|hora|horas|vezes|vez|cada|capsula|comprimido|gotas?)$/i.test(w)) break;
+      if (/^\d/.test(w) || DOSAGEM_RE.test(w) || STOP_WORDS.test(w)) break;
       nameWords.push(w);
     }
     nome = nameWords.join(' ');
