@@ -18,13 +18,6 @@
     "type": "module"
   },
   "permissions": ["identity", "storage"],
-  "content_scripts": [
-    {
-      "matches": ["https://calendar.google.com/*"],
-      "js": ["src/content/index.ts"],
-      "run_at": "document_idle"
-    }
-  ],
   "host_permissions": [
     "https://www.googleapis.com/calendar/*",
     "https://generativelanguage.googleapis.com/v1/*",

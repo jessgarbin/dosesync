@@ -45,7 +45,7 @@ Upload a photo, PDF, or paste the text. DoseSync reads it, identifies every medi
 
 ## How it works
 
-1. Open Google Calendar and click "+ Create" — DoseSync adds a "Schedule medications" option.
+1. Click the DoseSync icon in your Chrome toolbar.
 2. Upload a photo/PDF of your prescription, or paste the text directly.
 3. Review editable cards with each medication, dosage, frequency, and food condition.
 4. DoseSync generates the exact times based on your breakfast/lunch/dinner/bedtime anchors.
@@ -107,7 +107,7 @@ The Chrome Web Store submission form asks you to justify each permission in a se
 
 ### Host permission: `https://calendar.google.com/*`
 
-> The extension's content script injects a "Schedule medications" menu item into the "+ Create" dropdown on Google Calendar's web UI, which is where users start the flow.
+> **Note:** this permission may no longer be needed since the extension now runs entirely from the popup. If the content script on `calendar.google.com` has been removed, drop this permission from the manifest before submission.
 
 ### Host permission: `https://www.googleapis.com/calendar/*`
 
@@ -164,7 +164,7 @@ Certify:
 |---|---|---|---|---|
 | Store icon | 128×128 | PNG | 1 | `public/icons/icon128.png` ✓ already exists |
 | Small promo tile | 440×280 | PNG or JPEG | 1 (recommended) | *TODO — create* |
-| Screenshots | 1280×800 **or** 640×400 | PNG or JPEG (no alpha) | 1–5 | *TODO — capture* |
+| Screenshots | 1280×800 **or** 640×400 | PNG or JPEG (no alpha) | 1–4 | *TODO — capture* |
 | Marquee promo tile | 1400×560 | PNG or JPEG | optional | *TODO if featured* |
 
 ### Screenshot capture guide
@@ -173,25 +173,21 @@ Use the same aspect ratio for all screenshots (don't mix 1280×800 and 640×400)
 
 Scenes to capture, in order:
 
-1. **"+ Create" dropdown with DoseSync item visible**
-   Caption: *"One click from Google Calendar"*
-   How: open `calendar.google.com`, click "+ Create", take the screenshot before the menu closes.
-
-2. **Modal open, StepInput screen showing upload + paste options**
+1. **Popup open, StepInput screen showing upload + paste options**
    Caption: *"Upload a photo, a PDF, or just paste the text"*
-   How: in the modal, the initial step. Use realistic placeholder text visible in the textarea.
+   How: click the DoseSync icon in the toolbar. The initial step shows the upload and paste options.
 
-3. **Modal on StepReview with 2–3 medication cards + timeline**
+2. **Popup on StepReview with 2–3 medication cards + timeline**
    Caption: *"Editable cards with meal-based timing"*
    How: parse a fake prescription ("Amoxicilina 500mg 8/8h 7 dias; Omeprazol 20mg 1x dia jejum; Dipirona 500mg 6/6h SOS"), land on review step.
 
-4. **Google Calendar showing the created recurring events**
+3. **Google Calendar showing the created recurring events**
    Caption: *"Reminders on the calendar you already use"*
-   How: after confirming, close the modal, show the calendar with 3–5 events lined up.
+   How: after confirming, show the calendar with 3–5 events lined up.
 
-5. **Popup Settings with provider pickers and "Test key" button**
+4. **Popup Settings with provider pickers and "Test key" button**
    Caption: *"Bring your own AI key or skip AI entirely for pasted text"*
-   How: click the extension icon in the toolbar.
+   How: click the gear icon inside the popup.
 
 ### Capture commands (macOS)
 

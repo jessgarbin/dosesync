@@ -8,7 +8,7 @@ Patients leave a doctor's office with a prescription and have to manually figure
 
 Most people don't set them up at all.
 
-DoseSync solves this by integrating directly into Google Calendar, the tool people already use for their daily schedules.
+DoseSync solves this in a single click from the Chrome toolbar.
 
 ## How it works
 
@@ -32,13 +32,11 @@ Prescription input
                        Calendar             reminders per dose
 ```
 
-1. User clicks **"+ Create"** in Google Calendar → sees **"Schedule medications"** injected in the dropdown
+1. User clicks the **DoseSync icon** in the Chrome toolbar
 2. Chooses between uploading a file (photo/PDF) or pasting prescription text
 3. Photo/PDF go through AI; pasted text goes through a local regex parser — both produce editable medication cards
 4. Extension calculates optimal times based on the user's meal routine
 5. One click creates all recurring events with reminders on the chosen calendar (Google or Microsoft)
-
-The extension also works from its popup (click the extension icon) for quick access outside Calendar.
 
 ## Scheduling logic
 
@@ -69,12 +67,12 @@ Each dose of each medication becomes a separate recurring Google Calendar event 
 ## Architecture
 
 ```
-┌─ Content Script (calendar.google.com) ─────────────┐
-���                                                     │
-│  MutationObserver ──► detects "+ Create" dropdown   │
-│    └─ injects "Schedule medications" menu item      │
-│       └─ opens modal in Shadow DOM (CSS isolated)   │
-│          └─ React app (wizard: input → review)      │
+┌─ Popup (extension icon click) ─────────────────────┐
+│                                                     │
+│  React app (wizard: input → review → done)          │
+│    ├─ Upload photo/PDF or paste text                │
+│    ├─ Editable medication cards                     │
+│    └─ Confirm → create calendar events              │
 │                                                     │
 │  Communication: chrome.runtime.sendMessage          │
 └───────────────────────┬─────────────────────────────┘
@@ -90,9 +88,9 @@ Each dose of each medication becomes a separate recurring Google Calendar event 
 └─────────────────────────────────────────────────────┘
 ```
 
-Pasted text is parsed locally in the content script via `src/lib/parser/text-parser.ts` — no network round-trip, no AI, no API key required for that path.
+Pasted text is parsed locally via `src/lib/parser/text-parser.ts` — no network round-trip, no AI, no API key required for that path.
 
-**Why the Service Worker handles API calls:** Content scripts on `calendar.google.com` inherit Google's CSP, which blocks fetch to external domains. The service worker runs in the extension context with no CSP restrictions, and API keys stay out of the page.
+**Why the Service Worker handles API calls:** The popup communicates with the service worker via `chrome.runtime.sendMessage`. The service worker runs in the extension context with no CSP restrictions, and API keys stay out of the page.
 
 ## Stack
 
@@ -115,17 +113,13 @@ Pasted text is parsed locally in the content script via `src/lib/parser/text-par
 src/
 ├── background/
 │   └── service-worker.ts        # AI calls, Calendar API, OAuth2
-├── content/
-│   ├── index.ts                 # Entry point for content script
-│   ├── menu-injector.ts         # Detects dropdown, injects menu item
-│   └── modal-host.ts            # Shadow DOM + React mount
 ├── modal/
 │   ├── App.tsx                  # Wizard (input → review → done)
 │   └── components/
 │       ├── StepInput.tsx        # Upload file or paste text
 │       ├── StepReview.tsx       # Editable cards + timeline + confirm
 │       └── MedicationRow.tsx    # Single medication card
-├─�� popup/
+├── popup/
 │   ├── Settings.tsx             # API keys, meal times, reminders
 │   └── main.tsx                 # Popup entry point
 ├── lib/
@@ -171,8 +165,7 @@ Load the extension:
 1. Go to `chrome://extensions`
 2. Enable "Developer mode"
 3. Click "Load unpacked" → select the `dist/` folder
-4. Open [Google Calendar](https://calendar.google.com)
-5. Click **"+ Create"** → you should see **"Schedule medications"**
+4. Click the DoseSync icon in the toolbar to open the popup
 
 ### End users
 
