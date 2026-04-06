@@ -25,4 +25,5 @@ export interface Medication {
   duracao_dias: number | null;
   condicao: FoodCondition;
   observacoes: string | null;
+  lang?: 'pt' | 'en';
 }

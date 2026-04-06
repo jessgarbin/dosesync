@@ -31,7 +31,19 @@ function minutesToTime(mins: number): string {
   return `${h}:${m}`;
 }
 
-function condLabel(cond: FoodCondition): string {
+type Lang = 'pt' | 'en';
+
+function condLabel(cond: FoodCondition, lang: Lang): string {
+  if (lang === 'pt') {
+    switch (cond) {
+      case 'jejum': return 'Em jejum';
+      case 'antes_refeicao': return 'Antes da refeição';
+      case 'com_refeicao': return 'Com refeição';
+      case 'apos_refeicao': return 'Após refeição';
+      case 'antes_dormir': return 'Antes de dormir';
+      case 'qualquer': return 'Qualquer horário';
+    }
+  }
   switch (cond) {
     case 'jejum': return 'Fasting';
     case 'antes_refeicao': return 'Before meal';
@@ -42,10 +54,25 @@ function condLabel(cond: FoodCondition): string {
   }
 }
 
+function mealLabels(lang: Lang) {
+  return lang === 'pt'
+    ? { breakfast: 'Café', lunch: 'Almoço', dinner: 'Jantar', bedtime: 'Dormir', morning: 'Manhã' }
+    : { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', bedtime: 'Bedtime', morning: 'Morning' };
+}
+
+function everyLabel(hours: number, lang: Lang): string {
+  return lang === 'pt' ? `A cada ${hours}h` : `Every ${hours}h`;
+}
+
+function doseLabel(i: number, total: number, lang: Lang): string {
+  return lang === 'pt' ? `Dose ${i + 1} de ${total}` : `Dose ${i + 1} of ${total}`;
+}
+
 function generateIntervalTimes(
   intervalHours: number,
   startTime: string,
   label: string,
+  lang: Lang,
 ): { horario: string; refeicaoRef: string }[] {
   const results: { horario: string; refeicaoRef: string }[] = [];
   let mins = parseTimeToMinutes(startTime, 7 * 60);
@@ -53,7 +80,7 @@ function generateIntervalTimes(
   if (stepMins <= 0) return results;
 
   while (mins < 24 * 60) {
-    results.push({ horario: minutesToTime(mins), refeicaoRef: `Every ${intervalHours}h - ${label}` });
+    results.push({ horario: minutesToTime(mins), refeicaoRef: `${everyLabel(intervalHours, lang)} - ${label}` });
     mins += stepMins;
   }
 
@@ -64,8 +91,10 @@ export function getTimesForFrequency(
   freq: Medication['frequencia'],
   condicao: FoodCondition,
   mealTimes: MealTimes,
+  lang: Lang = 'en',
 ): { horario: string; refeicaoRef: string }[] {
   const { cafe, almoco, jantar, dormir } = mealTimes;
+  const ml = mealLabels(lang);
 
   const offsetMin = (cond: FoodCondition, baseTime: string): string => {
     let mins = parseTimeToMinutes(baseTime, 8 * 60);
@@ -86,9 +115,9 @@ export function getTimesForFrequency(
 
   if (condicao === 'antes_dormir') {
     const time = offsetMin(condicao, dormir);
-    const times = [{ horario: time, refeicaoRef: `Before bed (${dormir})` }];
+    const times = [{ horario: time, refeicaoRef: `${ml.bedtime} (${dormir})` }];
     if (freq !== '1x_dia') {
-      times.unshift({ horario: offsetMin('qualquer', cafe), refeicaoRef: `Breakfast (${cafe})` });
+      times.unshift({ horario: offsetMin('qualquer', cafe), refeicaoRef: `${ml.breakfast} (${cafe})` });
     }
     return times;
   }
@@ -110,7 +139,7 @@ export function getTimesForFrequency(
       }
       // Clamp to a valid daytime range — never negative, never past end of day
       startMins = Math.max(0, Math.min(startMins, 24 * 60 - 1));
-      return generateIntervalTimes(intervalH, minutesToTime(startMins), condLabel(condicao));
+      return generateIntervalTimes(intervalH, minutesToTime(startMins), condLabel(condicao, lang), lang);
     }
   }
 
@@ -121,7 +150,7 @@ export function getTimesForFrequency(
     };
     const fixedCount = countMap[freq];
     if (fixedCount) {
-      if (fixedCount === 1) return [{ horario: cafe, refeicaoRef: 'Morning' }];
+      if (fixedCount === 1) return [{ horario: cafe, refeicaoRef: ml.morning }];
       const cafeMins = parseTimeToMinutes(cafe, 7 * 60);
       const dormirMins = parseTimeToMinutes(dormir, 22 * 60);
       // If meal times are out of order, fall back to a sensible default span
@@ -129,18 +158,18 @@ export function getTimesForFrequency(
       const interval = span / fixedCount;
       return Array.from({ length: fixedCount }, (_, i) => {
         const mins = Math.round(cafeMins + i * interval);
-        return { horario: minutesToTime(mins), refeicaoRef: `Dose ${i + 1} of ${fixedCount}` };
+        return { horario: minutesToTime(mins), refeicaoRef: doseLabel(i, fixedCount, lang) };
       });
     }
-    return [{ horario: cafe, refeicaoRef: 'Morning' }];
+    return [{ horario: cafe, refeicaoRef: ml.morning }];
   }
 
   // Meal condition + Nx_dia: anchor to meals
   const mealRefs = [
-    { time: cafe, label: `Breakfast (${cafe})` },
-    { time: almoco, label: `Lunch (${almoco})` },
-    { time: jantar, label: `Dinner (${jantar})` },
-    { time: dormir, label: `Bedtime (${dormir})` },
+    { time: cafe, label: `${ml.breakfast} (${cafe})` },
+    { time: almoco, label: `${ml.lunch} (${almoco})` },
+    { time: jantar, label: `${ml.dinner} (${jantar})` },
+    { time: dormir, label: `${ml.bedtime} (${dormir})` },
   ];
 
   switch (freq) {
@@ -186,7 +215,7 @@ export function buildDosesFromMedications(
   const allDoses: ScheduledDose[] = [];
 
   for (const med of medications) {
-    const times = getTimesForFrequency(med.frequencia, med.condicao, mealTimes);
+    const times = getTimesForFrequency(med.frequencia, med.condicao, mealTimes, med.lang);
     const medDoses: ScheduledDose[] = times.map(t => ({
       medicationId: med.id,
       nome: med.nome,

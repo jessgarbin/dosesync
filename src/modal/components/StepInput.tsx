@@ -25,7 +25,7 @@ function normalizeMeds(raw: Record<string, unknown>[]): Medication[] {
     id: `med_${Date.now()}_${i}`,
     nome: String(m.nome ?? ''),
     dosagem: String(m.dosagem ?? ''),
-    posologia: String(m.posologia ?? '1 tablet'),
+    posologia: String(m.posologia ?? ''),
     frequencia: (m.frequencia as Medication['frequencia']) ?? '1x_dia',
     duracao_dias: typeof m.duracao_dias === 'number' ? m.duracao_dias : null,
     condicao: (m.condicao as Medication['condicao']) ?? 'qualquer',

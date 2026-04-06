@@ -1,5 +1,7 @@
 import type { Medication, Frequency, FoodCondition } from '../../types/medication';
 
+type Lang = 'pt' | 'en';
+
 interface ParsedLine {
   nome: string;
   dosagem: string;
@@ -65,7 +67,7 @@ const CONDICAO_MAP: [RegExp, FoodCondition][] = [
   [/\bcom\s*(?:a\s*)?(?:comida|refei[çc][ãa]o|alimento)\b/i, 'com_refeicao'],
   [/\bwith\s+(?:food|meals?)\b/i, 'com_refeicao'],
   // After meal
-  [/\bap[oó]s\s*(?:a\s*)?(?:comida|refei[çc][ãa]o|alimento)\b/i, 'apos_refeicao'],
+  [/\bap[oó]s\s*(?:a\s*)?(?:comida|refei[çc][ãa]o|alimento|caf[eé])\b/i, 'apos_refeicao'],
   [/\bdepois\s*(?:da|de)?\s*(?:comida|refei[çc][ãa]o)\b/i, 'apos_refeicao'],
   [/\bafter\s+(?:a\s+)?meals?\b/i, 'apos_refeicao'],
   [/\bpc\b/i, 'apos_refeicao'], // "post cibum" medical abbreviation
@@ -78,9 +80,100 @@ const CONDICAO_MAP: [RegExp, FoodCondition][] = [
   [/\bhs\b/i, 'antes_dormir'], // "hora somni" medical abbreviation
 ];
 
-const SOS_RE = /\b(?:se\s+necess[aá]rio|quando\s+necess[aá]rio|em\s+caso\s+de\s+dor|sos|s[\/]?n|as\s+needed|if\s+needed|when\s+needed|prn)\b/i;
+const SOS_RE = /\b(?:se\s+necess[aá]rio|quando\s+necess[aá]rio|em\s+caso\s+de\s+dor|se\s+dor|sos|s[\/]?n|as\s+needed|if\s+needed|when\s+needed|prn)\b/i;
 
-function parseLine(line: string): ParsedLine | null {
+function detectLanguage(text: string): Lang {
+  const ptRe = /\b(tomar|ao\s+dia|em\s+jejum|comprimidos?|c[aá]psulas?|por\s+\d+\s+dias?|de\s+\d+\s+em\s+\d+|vezes|refei[çc][ãa]o|antes|ap[oó]s|dormir|se\s+dor|se\s+necess[aá]rio)\b/gi;
+  const enRe = /\b(take|daily|fasting|tablets?|capsules?|for\s+\d+\s+days?|every\s+\d+|times?\s+a\s+day|before\s+meal|after\s+meal|as\s+needed|bedtime)\b/gi;
+  const ptCount = (text.match(ptRe) || []).length;
+  const enCount = (text.match(enRe) || []).length;
+  return ptCount >= enCount ? 'pt' : 'en';
+}
+
+// Pharmaceutical form maps per language
+const FORM_PT: Record<string, [string, string]> = {
+  'cp': ['cápsula', 'cápsulas'],
+  'cap': ['cápsula', 'cápsulas'],
+  'caps': ['cápsula', 'cápsulas'],
+  'capsule': ['cápsula', 'cápsulas'],
+  'capsules': ['cápsula', 'cápsulas'],
+  'capsula': ['cápsula', 'cápsulas'],
+  'capsulas': ['cápsula', 'cápsulas'],
+  'cápsula': ['cápsula', 'cápsulas'],
+  'cápsulas': ['cápsula', 'cápsulas'],
+  'comprimido': ['comprimido', 'comprimidos'],
+  'comprimidos': ['comprimido', 'comprimidos'],
+  'tablet': ['comprimido', 'comprimidos'],
+  'tablets': ['comprimido', 'comprimidos'],
+  'pill': ['comprimido', 'comprimidos'],
+  'pills': ['comprimido', 'comprimidos'],
+  'dose': ['dose', 'doses'],
+  'doses': ['dose', 'doses'],
+  'gota': ['gota', 'gotas'],
+  'gotas': ['gota', 'gotas'],
+  'drop': ['gota', 'gotas'],
+  'drops': ['gota', 'gotas'],
+  'sache': ['sachê', 'sachês'],
+  'saches': ['sachê', 'sachês'],
+  'sachê': ['sachê', 'sachês'],
+  'sachês': ['sachê', 'sachês'],
+  'sachet': ['sachê', 'sachês'],
+  'sachets': ['sachê', 'sachês'],
+  'ampola': ['ampola', 'ampolas'],
+  'ampolas': ['ampola', 'ampolas'],
+  'ampoule': ['ampola', 'ampolas'],
+  'ampoules': ['ampola', 'ampolas'],
+  'dragea': ['drágea', 'drágeas'],
+  'drageas': ['drágea', 'drágeas'],
+  'drágea': ['drágea', 'drágeas'],
+  'drágeas': ['drágea', 'drágeas'],
+  'dragee': ['drágea', 'drágeas'],
+  'dragees': ['drágea', 'drágeas'],
+  'ml': ['ml', 'ml'],
+};
+
+const FORM_EN: Record<string, [string, string]> = {
+  'cp': ['capsule', 'capsules'],
+  'cap': ['capsule', 'capsules'],
+  'caps': ['capsule', 'capsules'],
+  'capsule': ['capsule', 'capsules'],
+  'capsules': ['capsule', 'capsules'],
+  'capsula': ['capsule', 'capsules'],
+  'capsulas': ['capsule', 'capsules'],
+  'cápsula': ['capsule', 'capsules'],
+  'cápsulas': ['capsule', 'capsules'],
+  'comprimido': ['tablet', 'tablets'],
+  'comprimidos': ['tablet', 'tablets'],
+  'tablet': ['tablet', 'tablets'],
+  'tablets': ['tablet', 'tablets'],
+  'pill': ['pill', 'pills'],
+  'pills': ['pill', 'pills'],
+  'dose': ['dose', 'doses'],
+  'doses': ['dose', 'doses'],
+  'gota': ['drop', 'drops'],
+  'gotas': ['drop', 'drops'],
+  'drop': ['drop', 'drops'],
+  'drops': ['drop', 'drops'],
+  'sache': ['sachet', 'sachets'],
+  'saches': ['sachet', 'sachets'],
+  'sachê': ['sachet', 'sachets'],
+  'sachês': ['sachet', 'sachets'],
+  'sachet': ['sachet', 'sachets'],
+  'sachets': ['sachet', 'sachets'],
+  'ampola': ['ampoule', 'ampoules'],
+  'ampolas': ['ampoule', 'ampoules'],
+  'ampoule': ['ampoule', 'ampoules'],
+  'ampoules': ['ampoule', 'ampoules'],
+  'dragea': ['dragee', 'dragees'],
+  'drageas': ['dragee', 'dragees'],
+  'drágea': ['dragee', 'dragees'],
+  'drágeas': ['dragee', 'dragees'],
+  'dragee': ['dragee', 'dragees'],
+  'dragees': ['dragee', 'dragees'],
+  'ml': ['ml', 'ml'],
+};
+
+function parseLine(line: string, lang: Lang): ParsedLine | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.length < 3) return null;
 
@@ -88,54 +181,15 @@ function parseLine(line: string): ParsedLine | null {
   const dosagemMatch = trimmed.match(DOSAGEM_RE);
   const dosagem = dosagemMatch?.[1] ?? '';
 
-  // Instructions — normalize PT and abbreviated forms to English
+  // Posologia
   const posologiaMatch = trimmed.match(POSOLOGIA_RE);
   let posologia = '';
   if (posologiaMatch) {
     const qty = posologiaMatch[1]!;
     const raw = posologiaMatch[2]!.toLowerCase();
     const plural = qty !== '1';
-    const FORM_MAP: Record<string, [string, string]> = {
-      // [singular, plural]
-      'cp': ['capsule', 'capsules'],
-      'cap': ['capsule', 'capsules'],
-      'caps': ['capsule', 'capsules'],
-      'capsule': ['capsule', 'capsules'],
-      'capsules': ['capsule', 'capsules'],
-      'capsula': ['capsule', 'capsules'],
-      'capsulas': ['capsule', 'capsules'],
-      'cápsula': ['capsule', 'capsules'],
-      'cápsulas': ['capsule', 'capsules'],
-      'comprimido': ['tablet', 'tablets'],
-      'comprimidos': ['tablet', 'tablets'],
-      'tablet': ['tablet', 'tablets'],
-      'tablets': ['tablet', 'tablets'],
-      'pill': ['pill', 'pills'],
-      'pills': ['pill', 'pills'],
-      'dose': ['dose', 'doses'],
-      'doses': ['dose', 'doses'],
-      'gota': ['drop', 'drops'],
-      'gotas': ['drop', 'drops'],
-      'drop': ['drop', 'drops'],
-      'drops': ['drop', 'drops'],
-      'sache': ['sachet', 'sachets'],
-      'saches': ['sachet', 'sachets'],
-      'sachê': ['sachet', 'sachets'],
-      'sachês': ['sachet', 'sachets'],
-      'sachet': ['sachet', 'sachets'],
-      'sachets': ['sachet', 'sachets'],
-      'ampola': ['ampoule', 'ampoules'],
-      'ampolas': ['ampoule', 'ampoules'],
-      'ampoule': ['ampoule', 'ampoules'],
-      'ampoules': ['ampoule', 'ampoules'],
-      'dragea': ['dragee', 'dragees'],
-      'drageas': ['dragee', 'dragees'],
-      'drágea': ['dragee', 'dragees'],
-      'drágeas': ['dragee', 'dragees'],
-      'dragee': ['dragee', 'dragees'],
-      'dragees': ['dragee', 'dragees'],
-    };
-    const mapped = FORM_MAP[raw];
+    const formMap = lang === 'pt' ? FORM_PT : FORM_EN;
+    const mapped = formMap[raw];
     const form = mapped ? mapped[plural ? 1 : 0] : raw;
     posologia = `${qty} ${form}`;
   }
@@ -167,7 +221,7 @@ function parseLine(line: string): ParsedLine | null {
   let observacoes: string | null = null;
   if (isSOS) {
     frequencia = '1x_dia';
-    observacoes = 'As needed (SOS)';
+    observacoes = lang === 'pt' ? 'Se necessário (SOS)' : 'As needed (SOS)';
   }
 
   // Name: everything before the dosage/numbers, or the first significant words
@@ -195,6 +249,8 @@ function parseLine(line: string): ParsedLine | null {
 }
 
 export function parseTextPrescription(text: string): Medication[] {
+  const lang = detectLanguage(text);
+
   const lines = text
     .split(/\n|;/)
     .map(l => l.trim())
@@ -203,11 +259,12 @@ export function parseTextPrescription(text: string): Medication[] {
   const medications: Medication[] = [];
 
   for (const line of lines) {
-    const parsed = parseLine(line);
+    const parsed = parseLine(line, lang);
     if (parsed) {
       medications.push({
         id: `med_${Date.now()}_${medications.length}`,
         ...parsed,
+        lang,
       });
     }
   }
