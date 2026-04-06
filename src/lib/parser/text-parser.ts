@@ -90,7 +90,7 @@ function parseLine(line: string): ParsedLine | null {
 
   // Instructions — normalize PT and abbreviated forms to English
   const posologiaMatch = trimmed.match(POSOLOGIA_RE);
-  let posologia = '1 tablet';
+  let posologia = '';
   if (posologiaMatch) {
     const qty = posologiaMatch[1]!;
     const raw = posologiaMatch[2]!.toLowerCase();

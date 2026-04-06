@@ -251,9 +251,10 @@ export function buildCalendarEventsFromDoses(
     }
 
     const dosagemPart = dose.dosagem ? ` ${dose.dosagem}` : '';
+    const posologiaPart = dose.posologia ? ` - ${dose.posologia}` : '';
 
     events.push({
-      summary: `\uD83D\uDC8A ${dose.nome}${dosagemPart}`,
+      summary: `\uD83D\uDC8A ${dose.nome}${dosagemPart}${posologiaPart}`,
       description: [
         dose.posologia,
         dose.refeicaoRef,
