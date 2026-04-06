@@ -237,8 +237,10 @@ export function buildCalendarEventsFromDoses(
     let endDate = effectiveDate;
     if (endMins >= 24 * 60) {
       endMins -= 24 * 60;
-      const next = new Date(effectiveDate);
-      next.setDate(next.getDate() + 1);
+      // Parse date parts manually to avoid UTC vs local timezone mismatch
+      // (new Date("YYYY-MM-DD") is parsed as UTC, which shifts getDate() in negative-UTC zones)
+      const [y, mo, da] = effectiveDate.split('-').map(Number) as [number, number, number];
+      const next = new Date(y, mo - 1, da + 1);
       endDate = formatDate(next);
     }
     const endISO = `${endDate}T${minutesToTime(endMins)}:00`;
