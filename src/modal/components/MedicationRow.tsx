@@ -67,7 +67,7 @@ export default function MedicationRow({
   const durLabel = medication.duracao_dias ? `${medication.duracao_dias}d` : 'Ongoing';
   const condShort = COND_SHORT[medication.condicao];
   const summaryParts = [
-    medication.posologia,
+    medication.dosagem,
     FREQ_LABELS[medication.frequencia],
     durLabel,
     condShort,
@@ -90,11 +90,7 @@ export default function MedicationRow({
           <div className="rx-card-grid" style={{ marginTop: '8px' }}>
             <div className="rx-field">
               <label>Dosage</label>
-              <input value={medication.dosagem} onChange={(e) => update('dosagem', e.target.value)} placeholder="e.g. 500mg (optional)" />
-            </div>
-            <div className="rx-field">
-              <label>Instructions</label>
-              <input value={medication.posologia} onChange={(e) => update('posologia', e.target.value)} placeholder="e.g. 1 tablet" />
+              <input value={medication.dosagem} onChange={(e) => update('dosagem', e.target.value)} placeholder="e.g. 1 tablet" />
             </div>
             <div className="rx-field">
               <label>Frequency</label>
@@ -128,7 +124,7 @@ export default function MedicationRow({
         <div className="rx-med-row-header">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="rx-med-row-name">
-              {medication.nome} <span className="rx-med-row-dosage">{medication.dosagem}</span>
+              {medication.nome}
             </div>
             <div className="rx-med-row-summary">{summaryParts.join(' \u00B7 ')}</div>
           </div>

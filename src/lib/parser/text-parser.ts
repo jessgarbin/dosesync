@@ -3,9 +3,8 @@ import type { Medication, Frequency, FoodCondition } from '../../types/medicatio
 type Lang = 'pt' | 'en';
 
 interface ParsedLine {
-  nome: string;
-  dosagem: string;
-  posologia: string;
+  nome: string;       // name + concentration (e.g. "Amoxicilina 500mg")
+  dosagem: string;    // amount per dose (e.g. "1 cápsula")
   frequencia: Frequency;
   duracao_dias: number | null;
   condicao: FoodCondition;
@@ -177,21 +176,21 @@ function parseLine(line: string, lang: Lang): ParsedLine | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.length < 3) return null;
 
-  // Dosage
-  const dosagemMatch = trimmed.match(DOSAGEM_RE);
-  const dosagem = dosagemMatch?.[1] ?? '';
+  // Concentration (e.g. "500mg") — will be appended to the name
+  const concMatch = trimmed.match(DOSAGEM_RE);
+  const concentration = concMatch?.[1] ?? '';
 
-  // Posologia
-  const posologiaMatch = trimmed.match(POSOLOGIA_RE);
-  let posologia = '';
-  if (posologiaMatch) {
-    const qty = posologiaMatch[1]!;
-    const raw = posologiaMatch[2]!.toLowerCase();
+  // Dosage = pharmaceutical form + quantity (e.g. "1 cápsula")
+  const formMatch = trimmed.match(POSOLOGIA_RE);
+  let dosagem = '';
+  if (formMatch) {
+    const qty = formMatch[1]!;
+    const raw = formMatch[2]!.toLowerCase();
     const plural = qty !== '1';
     const formMap = lang === 'pt' ? FORM_PT : FORM_EN;
     const mapped = formMap[raw];
     const form = mapped ? mapped[plural ? 1 : 0] : raw;
-    posologia = `${qty} ${form}`;
+    dosagem = `${qty} ${form}`;
   }
 
   // Frequency
@@ -224,13 +223,12 @@ function parseLine(line: string, lang: Lang): ParsedLine | null {
     observacoes = lang === 'pt' ? 'Se necessário (SOS)' : 'As needed (SOS)';
   }
 
-  // Name: everything before the dosage/numbers, or the first significant words
+  // Name: everything before the concentration, with concentration appended
   let nome = '';
-  if (dosagemMatch?.index != null && dosagemMatch.index > 0) {
-    nome = trimmed.slice(0, dosagemMatch.index).trim();
+  if (concMatch?.index != null && concMatch.index > 0) {
+    nome = trimmed.slice(0, concMatch.index).trim();
   }
   if (!nome) {
-    // Take the first words that aren't numbers/units/stop-words (PT + EN)
     const STOP_WORDS = /^(de|em|por|ao|da|com|antes|ap[oó]s|dia|dias|hora|horas|vezes|vez|cada|c[aá]psulas?|comprimidos?|gotas?|of|in|for|to|the|with|before|after|day|days|hour|hours|times?|every|tablets?|pills?|capsules?|drops?|daily|fasting|on|empty|stomach|bed|bedtime|night|needed|as)$/i;
     const words = trimmed.split(/[\s\-,]+/);
     const nameWords: string[] = [];
@@ -240,12 +238,16 @@ function parseLine(line: string, lang: Lang): ParsedLine | null {
     }
     nome = nameWords.join(' ');
   }
-  // Remove trailing dashes and punctuation
   nome = nome.replace(/[-–—,;:]+$/, '').trim();
 
   if (!nome) return null;
 
-  return { nome, dosagem, posologia, frequencia, duracao_dias, condicao, observacoes };
+  // Append concentration to the name (e.g. "Amoxicilina" + "500mg" → "Amoxicilina 500mg")
+  if (concentration) {
+    nome = `${nome} ${concentration}`;
+  }
+
+  return { nome, dosagem, frequencia, duracao_dias, condicao, observacoes };
 }
 
 export function parseTextPrescription(text: string): Medication[] {

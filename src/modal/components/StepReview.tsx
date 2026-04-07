@@ -86,7 +86,6 @@ export default function StepReview({
       id: generateId(),
       nome: '',
       dosagem: '',
-      posologia: '',
       frequencia: '1x_dia',
       duracao_dias: 7,
       condicao: 'qualquer',

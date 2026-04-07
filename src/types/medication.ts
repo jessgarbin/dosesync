@@ -18,9 +18,8 @@ export type FoodCondition =
 
 export interface Medication {
   id: string;
-  nome: string;
-  dosagem: string;
-  posologia: string;
+  nome: string;       // e.g. "Amoxicilina 500mg" (name + concentration)
+  dosagem: string;     // e.g. "1 cápsula" (amount per dose)
   frequencia: Frequency;
   duracao_dias: number | null;
   condicao: FoodCondition;

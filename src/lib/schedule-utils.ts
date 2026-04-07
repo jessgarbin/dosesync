@@ -220,7 +220,6 @@ export function buildDosesFromMedications(
       medicationId: med.id,
       nome: med.nome,
       dosagem: med.dosagem,
-      posologia: med.posologia,
       horario: t.horario,
       refeicaoRef: t.refeicaoRef,
       condicao: med.condicao,
@@ -279,13 +278,11 @@ export function buildCalendarEventsFromDoses(
       recurrence.push(`RRULE:FREQ=DAILY;COUNT=${effectiveCount}`);
     }
 
-    const dosagemPart = dose.dosagem ? ` ${dose.dosagem}` : '';
-    const posologiaPart = dose.posologia ? ` - ${dose.posologia}` : '';
+    const dosagemPart = dose.dosagem ? ` - ${dose.dosagem}` : '';
 
     events.push({
-      summary: `\uD83D\uDC8A ${dose.nome}${dosagemPart}${posologiaPart}`,
+      summary: `\uD83D\uDC8A ${dose.nome}${dosagemPart}`,
       description: [
-        dose.posologia,
         dose.refeicaoRef,
         dose.condicao,
         dose.observacoes,

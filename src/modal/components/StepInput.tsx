@@ -21,16 +21,21 @@ type TabMode = 'upload' | 'text';
 const MAX_TEXT_LENGTH = 10_000;
 
 function normalizeMeds(raw: Record<string, unknown>[]): Medication[] {
-  return raw.map((m, i) => ({
-    id: `med_${Date.now()}_${i}`,
-    nome: String(m.nome ?? ''),
-    dosagem: String(m.dosagem ?? ''),
-    posologia: String(m.posologia ?? ''),
-    frequencia: (m.frequencia as Medication['frequencia']) ?? '1x_dia',
-    duracao_dias: typeof m.duracao_dias === 'number' ? m.duracao_dias : null,
-    condicao: (m.condicao as Medication['condicao']) ?? 'qualquer',
-    observacoes: m.observacoes ? String(m.observacoes) : null,
-  }));
+  return raw.map((m, i) => {
+    // AI may return concentration separately — merge into name
+    const nome = String(m.nome ?? '');
+    const conc = m.concentracao ? String(m.concentracao) : '';
+    const fullName = conc && !nome.includes(conc) ? `${nome} ${conc}` : nome;
+    return {
+      id: `med_${Date.now()}_${i}`,
+      nome: fullName,
+      dosagem: String(m.dosagem ?? m.posologia ?? ''),
+      frequencia: (m.frequencia as Medication['frequencia']) ?? '1x_dia',
+      duracao_dias: typeof m.duracao_dias === 'number' ? m.duracao_dias : null,
+      condicao: (m.condicao as Medication['condicao']) ?? 'qualquer',
+      observacoes: m.observacoes ? String(m.observacoes) : null,
+    };
+  });
 }
 
 export default function StepInput({ onParsed, onError, onLoading, loading, text, onTextChange }: StepInputProps) {

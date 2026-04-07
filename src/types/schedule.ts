@@ -9,7 +9,6 @@ export interface ScheduledDose {
   medicationId: string;
   nome: string;
   dosagem: string;
-  posologia: string;
   horario: string;  // HH:MM
   refeicaoRef: string;
   condicao: string;
